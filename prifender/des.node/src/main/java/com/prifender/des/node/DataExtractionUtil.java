@@ -63,7 +63,7 @@ public class DataExtractionUtil {
 			baseDir = Temp.getTempFileDir();
 		}
 		if (StringUtils.isNotBlank(dirName)) {
-			dirName = baseDir + "/" + dirName;
+			dirName = baseDir + "/" + dirName+"/";
 			if (!new File(dirName).exists()) {
 				new File(dirName).mkdirs();
 			}

@@ -1,45 +1,57 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    
-    <modelVersion>4.0.0</modelVersion>
-    
-    <groupId>des.prifender</groupId>
-    <artifactId>des.node</artifactId>
-    <name>Prifender Data Extraction Service Node</name>
-
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>des.prifender</groupId>
+  <artifactId>des.node</artifactId>
+  
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
         <version>0.8.0-SNAPSHOT</version>
     </parent>
-    
-    <dependencies>
-        <dependency>
+   <dependencies>
+   <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <version>${spring.boot.version}</version>
         </dependency>
+         <dependency>
+		    <groupId>commons-lang</groupId>
+		    <artifactId>commons-lang</artifactId>
+		    <version>2.6</version>
+		</dependency>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commonslang3.version}</version>
-        </dependency>
+		    <groupId>org.apache.commons</groupId>
+		    <artifactId>commons-lang3</artifactId>
+		    <version>${commonslang3.version}</version>
+		</dependency>
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>messaging.rabbitmq</artifactId>
             <version>${prifender.version}</version>
-        </dependency>
-        <dependency>
+            <exclusions>
+            <exclusion>
+             <groupId>org.springframework</groupId>
+             <artifactId>spring-context</artifactId>
+            </exclusion>
+            </exclusions>
+        </dependency> 
+         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>messaging.api</artifactId>
             <version>${prifender.version}</version>
-        </dependency>
+            <exclusions>
+            <exclusion>
+             <groupId>org.springframework</groupId>
+             <artifactId>spring-context</artifactId>
+            </exclusion>
+            </exclusions>
+        </dependency>  
         <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>${jsonsimple.version}</version>
-        </dependency>
-        <dependency>
+		    <groupId>com.googlecode.json-simple</groupId>
+		    <artifactId>json-simple</artifactId>
+		    <version>${jsonsimple.version}</version>
+	    </dependency>
+          <dependency>
             <groupId>org.glassfish</groupId>
             <artifactId>javax.json</artifactId>
             <version>${glassfish.json.version}</version>
@@ -48,9 +60,14 @@
             <groupId>com.prifender</groupId>
             <artifactId>encryption.service.client.java</artifactId>
             <version>${prifender.version}</version>
+            <exclusions>
+            <exclusion>
+             <groupId>org.springframework</groupId>
+             <artifactId>spring-context</artifactId>
+            </exclusion>
+            </exclusions>
         </dependency>
-    </dependencies>
-
+  </dependencies>
     <build>
         <plugins>
             <plugin>
@@ -67,5 +84,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
