@@ -434,6 +434,15 @@ definitions:
           - time
           - string
           - binary
+      size:
+        type: integer
+        description: The data size (bytes if value kind, entry count if list kind)
+      nullable:
+        type: boolean
+        description: Specifies whether the attribute can be null (use only for value kind)
+      autoIncrement:
+        type: boolean
+        description: Specifies whether the attribute value is automatically generated upon insert into the collection (use only for value kind)
       entryType:
         description: The type of the list entry (use only for list kind)
         $ref: '#/definitions/Type'

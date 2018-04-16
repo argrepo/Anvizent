@@ -265,7 +265,7 @@ public final class MySqlDataSourceAdapter implements DataSourceAdapter {
 	}
 
 	public List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName)
-			throws SQLException {
+			throws SQLException, DataExtractionServiceException {
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
 		String columnsQuery = null;
@@ -279,10 +279,16 @@ public final class MySqlDataSourceAdapter implements DataSourceAdapter {
 			while (resultSet.next()) {
 				NamedType attributeForColumn = new NamedType();
 				attributeForColumn.setName(resultSet.getString(1));
-				Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-						.dataType(databaseUtilService.getDataType(resultSet.getString(2).toUpperCase()));
-				attributeForColumn.setType(typeForCoumn);
-				attributeList.add(attributeForColumn);
+			 	Type columnInfo = getColumnInfo(con,schemaName,tableName,resultSet.getString(1));
+				if(columnInfo != null){ 
+					Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
+												   .dataType(databaseUtilService.getDataType(resultSet.getString(2).toUpperCase())) 
+												   .nullable(columnInfo.getNullable())
+												   .autoIncrement(columnInfo.getAutoIncrement())
+												   .size(columnInfo.getSize());
+				    attributeForColumn.setType(typeForCoumn);
+					attributeList.add(attributeForColumn);
+				 }
 			}
 		} finally {
 			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
@@ -290,38 +296,54 @@ public final class MySqlDataSourceAdapter implements DataSourceAdapter {
 
 		return attributeList;
 	}
-
-	public List<Constraint> getTableRelatedForeignkeyInfo(Connection con, String schemaName, String tableName)
-			throws SQLException {
-		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
-		List<Constraint> constraintList = new ArrayList<>();
-		try {
-			DatabaseMetaData meta = con.getMetaData();
-			resultSet = meta.getExportedKeys(schemaName, schemaName, tableName);
-			while (resultSet.next()) {
-				boolean isForeignKey = resultSet.getString("FKCOLUMN_NAME") != null ? true : false;
-				List<String> fkAttributes = new ArrayList<>();
-				List<String> pkOfFkAttributes = new ArrayList<>();
-				Constraint constraint = new Constraint().kind(Constraint.KindEnum.FOREIGN_KEY);
-				;
-				if (StringUtils.isNotBlank(resultSet.getString("FKCOLUMN_NAME"))) {
-					if (isForeignKey) {
-						fkAttributes.add(resultSet.getString("FKCOLUMN_NAME"));
-						pkOfFkAttributes.add(resultSet.getString("PKCOLUMN_NAME"));
-						constraint.setTarget(resultSet.getString("FKTABLE_NAME"));
-					}
-				}
-				constraint.setAttributes(pkOfFkAttributes);
-				constraint.setTargetAttributes(fkAttributes);
-				constraintList.add(constraint);
+	 public Type getColumnInfo(Connection connection,String dataBaseName,String tableName,String columnName) throws DataExtractionServiceException{
+			Type type= new Type();
+			ResultSet resultSet = null;
+			try {
+				DatabaseMetaData meta = connection.getMetaData();
+				resultSet = meta.getColumns(null, dataBaseName, tableName,columnName);
+				if (resultSet.next()) {
+					type.setSize((resultSet.getInt("COLUMN_SIZE")));
+					type.setAutoIncrement(resultSet.getString("IS_AUTOINCREMENT").equals("YES") ? true : false);
+					type.setNullable(resultSet.getString("IS_NULLABLE").equals("YES") ? true : false); 
+				} 
+			} catch (SQLException e) {
+				throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
+			}finally{
+				
+				databaseUtilService.closeSqlObject(resultSet);
 			}
-		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
-		}
+			return type;
+		} 
+	 public List<Constraint> getTableRelatedForeignkeyInfo(Connection con, String schemaName, String tableName)
+				throws SQLException {
+			ResultSet resultSet = null;
+			List<Constraint> constraintList = new ArrayList<>();
+			try {
+				DatabaseMetaData meta = con.getMetaData();
+				resultSet = meta.getExportedKeys(schemaName, schemaName, tableName);
+				while (resultSet.next()) {
+					boolean isForeignKey = resultSet.getString("FKCOLUMN_NAME") != null ? true : false;
+					List<String> fkAttributes = new ArrayList<>();
+					List<String> pkOfFkAttributes = new ArrayList<>();
+					Constraint constraint = new Constraint().kind(Constraint.KindEnum.FOREIGN_KEY);
+					if (StringUtils.isNotBlank(resultSet.getString("FKCOLUMN_NAME"))) {
+						if (isForeignKey) {
+							fkAttributes.add(resultSet.getString("FKCOLUMN_NAME"));
+							pkOfFkAttributes.add(resultSet.getString("PKCOLUMN_NAME"));
+							constraint.setTarget(resultSet.getString("FKTABLE_SCHEM")+"."+resultSet.getString("FKTABLE_NAME"));
+						}
+					}
+					constraint.setAttributes(pkOfFkAttributes);
+					constraint.setTargetAttributes(fkAttributes);
+					constraintList.add(constraint);
+				}
+			} finally {
+				databaseUtilService.closeSqlObject(resultSet);
+			}
 
-		return constraintList;
-	}
+			return constraintList;
+		}
 
 	public List<Constraint> getTableRelatedPrimarykeyInfo(Connection con, String schemaName, String tableName)
 			throws SQLException {

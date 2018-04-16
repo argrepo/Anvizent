@@ -212,10 +212,16 @@ public final class TeraDataDataSourceAdapter implements DataSourceAdapter {
 			while (resultSet.next()) {
 				NamedType attributeForColumn = new NamedType();
 				attributeForColumn.setName(resultSet.getString("COLUMN_NAME"));
-				Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-						.dataType(databaseUtilService.getDataType(resultSet.getString("TYPE_NAME")));
-				attributeForColumn.setType(typeForCoumn);
-				attributeList.add(attributeForColumn);
+				Type columnInfo = getColumnInfo(con,dataSource,tableName,resultSet.getString(1));
+				if(columnInfo != null){ 
+					Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
+												   .dataType(databaseUtilService.getDataType(resultSet.getString("TYPE_NAME").toUpperCase())) 
+												   .nullable(columnInfo.getNullable())
+												   .autoIncrement(columnInfo.getAutoIncrement())
+												   .size(columnInfo.getSize());
+				    attributeForColumn.setType(typeForCoumn);
+					attributeList.add(attributeForColumn);
+				 }
 			}
 		} catch (SQLException e) {
 			throw new DataExtractionServiceException(new Problem().code("ERROR").message(e.getMessage()));
@@ -225,7 +231,24 @@ public final class TeraDataDataSourceAdapter implements DataSourceAdapter {
 
 		return attributeList;
 	}
-
+	public Type getColumnInfo(Connection connection,String dataBaseName,String tableName,String columnName) throws DataExtractionServiceException{
+		Type type= new Type();
+		ResultSet resultSet = null;
+		try {
+			DatabaseMetaData meta = connection.getMetaData();
+			resultSet = meta.getColumns(null, dataBaseName, tableName,columnName);
+			if (resultSet.next()) {
+				type.setSize(resultSet.getInt("COLUMN_SIZE"));
+				type.setAutoIncrement(resultSet.getMetaData().isAutoIncrement(1)  ?  true  :  false );
+				type.setNullable(resultSet.getString("IS_NULLABLE").equals("YES") ? true : false); 
+			} 
+		} catch (SQLException e) {
+			throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
+		}finally{
+			databaseUtilService.closeSqlObject(resultSet);
+		}
+		return type;
+	}
 	private List<Constraint> getTableRelatedPkInfo(Connection con, String dataSource, String tableName) {
 		DatabaseMetaData databaseMetaData;
 		List<Constraint> constraintList = new ArrayList<Constraint>();

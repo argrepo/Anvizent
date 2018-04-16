@@ -270,7 +270,10 @@ public final class HiveDataSourceAdapter implements DataSourceAdapter {
 							 String[] columnAndDataType = columnType.split(":");
 							 attributeForColumn = new NamedType();
 							 attributeForColumn.setName(columnName+"."+columnAndDataType[0]);
-							 Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(columnAndDataType[1].toUpperCase().trim()));
+							 Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
+							            .dataType(databaseUtilService.getDataType(columnAndDataType[1].toUpperCase().trim()))
+							            .nullable(columns.getString("IS_NULLABLE").equals("YES") ? true : false)
+										.autoIncrement(columns.getMetaData().isAutoIncrement(1)  ? true : false);
 							 attributeForColumn.setType(typeForCoumn);
 							 attributeList.add(attributeForColumn);
 						 }
@@ -278,14 +281,18 @@ public final class HiveDataSourceAdapter implements DataSourceAdapter {
 						 String modifiedType = type.replace("array","").replace("<", "").replace(">", "");
 						 attributeForColumn = new NamedType();
 						 attributeForColumn.setName(columnName);
-						 Type typeForCoumn = new Type().kind(Type.KindEnum.LIST).dataType(databaseUtilService.getDataType(modifiedType.toUpperCase()));
+						 Type typeForCoumn = new Type().kind(Type.KindEnum.LIST).dataType(databaseUtilService.getDataType(modifiedType.toUpperCase()))
+								    .nullable(columns.getString("IS_NULLABLE").equals("YES") ? true : false)
+									.autoIncrement(columns.getMetaData().isAutoIncrement(1)  ? true : false);
 						 attributeForColumn.setType(typeForCoumn);
 						 attributeList.add(attributeForColumn);
 					}
 				}else{
 					 attributeForColumn = new NamedType();
 					 attributeForColumn.setName(columnName);
-					 Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(type.toUpperCase()));
+					 Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(type.toUpperCase()))
+							    .nullable(columns.getString("IS_NULLABLE").equals("YES") ? true : false)
+								.autoIncrement(columns.getMetaData().isAutoIncrement(1)  ? true : false);
 					 attributeForColumn.setType(typeForCoumn);
 					 attributeList.add(attributeForColumn);
 				}
@@ -298,55 +305,6 @@ public final class HiveDataSourceAdapter implements DataSourceAdapter {
 
 		return attributeList;
 	}
-
-	/*private List<NamedType> getTableRelatedColumns(Connection con, String dataSource, String tableName) throws DataExtractionServiceException {
-		DatabaseMetaData databaseMetaData = null;
-		List<NamedType> attributeList = new ArrayList<NamedType>();
-		try {
-			databaseMetaData = con.getMetaData();
-			ResultSet columns = databaseMetaData.getColumns(null, dataSource, tableName, null);
-			while (columns.next()) {
-				NamedType namedType = new NamedType();
-				namedType.setName(columns.getString("COLUMN_NAME"));
-				Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(columns.getString("TYPE_NAME")));
-				String type = columns.getString("TYPE_NAME");
-				if (type.contains("array")) {
-					namedType.setType(new Type().kind(Type.KindEnum.LIST));
-					List<NamedType> attributeListForColumns = new ArrayList<>();
-					if(type.contains("struct")){
-						Type entryType = new Type().kind(Type.KindEnum.OBJECT);
-						namedType.getType().setEntryType(entryType);
-						String modifiedType = type.replace("array","").replace("struct", "").replace("<", "").replace(">", "");
-						String[] columnNamesWithTypes = modifiedType.split(",");
-						 for(int i = 0; i<columnNamesWithTypes.length ;i++ ){
-							    String[] columnAndDataType = columnNamesWithTypes[i].split(":");
-								NamedType childNamedType = new NamedType();
-								childNamedType.setName(columnAndDataType[0]);
-								Type childCloumnType = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(columnAndDataType[1].toUpperCase()));
-								childNamedType.setType(childCloumnType);
-								attributeListForColumns.add(childNamedType);
-						 }
-					  entryType.setAttributes(attributeListForColumns);
-					}else if(type.contains("string")){
-						String modifiedType = type.replace("array","").replace("<", "").replace(">", "");
-						String[] columnNamesWithTypes = modifiedType.split(",");
-						Type childCloumnType = new Type().kind(Type.KindEnum.LIST).dataType(databaseUtilService.getDataType(columnNamesWithTypes[0].toUpperCase()));
-						namedType.setType(childCloumnType);
-					}
-					} else {
-						namedType.setType(typeForCoumn);
-					}
-				attributeList.add(namedType);
-				}  
-				
-		} catch (SQLException e) {
-			throw new DataExtractionServiceException(new Problem().code("ERROR").message(e.getMessage()));
-		}
-
-		return attributeList;
-	}*/
-
-	
 	public List<String> getAllDatasourcesFromDatabase(Connection con) throws SQLException {
 		List<String> schemaList = new ArrayList<>();
 		ResultSet resultSet = null;

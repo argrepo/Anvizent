@@ -1,6 +1,7 @@
 package com.prifender.des.adapter.relational.sqlserver;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -237,7 +238,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		return tableList;
 	}
 
-	public List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName) throws SQLException {
+	public List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName) throws SQLException, DataExtractionServiceException {
 		ResultSet rs = null;
 		PreparedStatement pstmt = null;
 		String columnsQuery = null;
@@ -254,10 +255,16 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				while (rs.next()) {
 					NamedType attributeForColumn = new NamedType();
 					attributeForColumn.setName(rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
-					Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-							.dataType(databaseUtilService.getDataType(rs.getString(2).toUpperCase()));
-					attributeForColumn.setType(typeForCoumn);
-					attributeList.add(attributeForColumn);
+					Type columnInfo = getColumnInfo(con,tableName,rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
+					if(columnInfo != null){ 
+						Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
+													   .dataType(databaseUtilService.getDataType(rs.getString(2).toUpperCase())) 
+													   .nullable(columnInfo.getNullable())
+													   .autoIncrement(columnInfo.getAutoIncrement())
+													   .size(columnInfo.getSize());
+					    attributeForColumn.setType(typeForCoumn);
+						attributeList.add(attributeForColumn);
+					 }
 				}
 			}
 		} finally {
@@ -266,7 +273,28 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 
 		return attributeList;
 	}
-
+	public Type getColumnInfo(Connection connection,String tableName,String columnName) throws DataExtractionServiceException{
+		Type type= new Type();
+		ResultSet resultSet = null;
+		try {
+			String dbName = tableName.split("\\.")[0].replaceAll("\\[", "").replaceAll("\\]", "");
+			String schema = tableName.split("\\.")[1].replaceAll("\\[", "").replaceAll("\\]", "");
+			String tabName = tableName.split("\\.")[2].replaceAll("\\[", "").replaceAll("\\]", "");
+			DatabaseMetaData meta = connection.getMetaData();
+			resultSet = meta.getColumns(dbName, schema, tabName,columnName);
+			if (resultSet.next()) {
+				type.setSize(resultSet.getInt("COLUMN_SIZE"));
+				type.setAutoIncrement(resultSet.getString("IS_AUTOINCREMENT").equals("YES") ? true : false);
+				type.setNullable(resultSet.getString("IS_NULLABLE").equals("YES") ? true : false); 
+			} 
+		} catch (SQLException e) {
+			throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
+		}finally{
+			databaseUtilService.closeSqlObject(resultSet);
+		}
+		return type;
+	}
+	
 	public List<Constraint> getTableRelatedFkInfo(Connection con, String schemaName, String tableName) throws SQLException {
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
@@ -303,12 +331,11 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 						List<String> fkAttributes = new ArrayList<>();
 						List<String> pkOfFkAttributes = new ArrayList<>();
 						Constraint constraint = new Constraint().kind(Constraint.KindEnum.FOREIGN_KEY);
-						;
 						if (StringUtils.isNotBlank(resultSet.getString("referenced_column_name"))) {
 							if (isForeignKey) {
 								fkAttributes.add(resultSet.getString("referenced_column_name"));
 								pkOfFkAttributes.add(resultSet.getString("column_name"));
-								constraint.setTarget(resultSet.getString("referenced_object"));
+								constraint.setTarget(dbName+"."+resultSet.getString("type_schema")+"."+resultSet.getString("referenced_object"));
 							}
 						}
 						constraint.setAttributes(pkOfFkAttributes);
