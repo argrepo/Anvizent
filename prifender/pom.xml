@@ -89,6 +89,8 @@
         <module>des.adapter.relational.sqlserver</module>
         <module>des.adapter.relational.sqlserverkerbores</module>  
         <module>des.adapter.relational.teradata</module>  
+        <module>des.adapter.hierarchical.cassandra</module>  
+        <module>des.adapter.hierarchical.hdfsorc</module>  
         <module>des.jobs</module>
         <module>des.stub</module>
         <module>des.mock</module>
