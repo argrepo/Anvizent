@@ -1,0 +1,122 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.prifender</groupId>
+    <artifactId>prifender</artifactId>
+    <name>Prifender</name>
+    <version>0.8.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <properties>
+
+        <maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
+        <prifender.version.base>0.8.0</prifender.version.base>
+        <prifender.version.full>0.8.0.${maven.build.timestamp}</prifender.version.full>
+        <prifender.version>${prifender.version.base}-SNAPSHOT</prifender.version>
+
+        <java.version>1.8</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+
+        <jackson.version>2.9.4</jackson.version>
+        <javax.validation.version>1.1.0.Final</javax.validation.version>
+        <jersey.version>2.25.1</jersey.version>
+        <jodatime.version>2.9.9</jodatime.version>
+        <junit.jupiter.version>5.0.3</junit.jupiter.version>
+        <git.commit.id.plugin.version>2.2.4</git.commit.id.plugin.version>
+        <glassfish.json.version>1.1.2</glassfish.json.version>
+        <gson.version>2.8.2</gson.version>
+        <guava.version>24.0-jre</guava.version>
+        <maven.surefire.plugin.version>2.20.1</maven.surefire.plugin.version>
+        <maven.antrun.plugin.version>1.8</maven.antrun.plugin.version>
+        <spring.version>5.0.3.RELEASE</spring.version>
+        <spring.boot.version>1.5.10.RELEASE</spring.boot.version>
+        <springfox.version>2.6.1</springfox.version>
+        <swagger.annotations.version>1.5.8</swagger.annotations.version>
+        <swagger.codegen.version>2.2.3</swagger.codegen.version>
+        <jsonsimple.version>1.1.1</jsonsimple.version>
+        <commonslang3.version>3.0</commonslang3.version>
+        <commonslang.version>2.6</commonslang.version>
+        <commons.csv.version>1.5</commons.csv.version>
+        <rabbitmq.client.version>5.1.2</rabbitmq.client.version>
+
+        <!-- Relational Data Source Connectors -->
+
+        <postgres.jar.version>42.1.4</postgres.jar.version>
+        <mysql.connector.version>6.0.6</mysql.connector.version>
+        <oracle.connector.version>12.2.0.1</oracle.connector.version>
+        <sqlserver.connector.version>6.4.0.jre8</sqlserver.connector.version>
+
+        <!-- Hierarchical Data Source Connectors -->
+
+        <couchbase.connector.version>2.5.5</couchbase.connector.version>
+        <mongo.connector.version>3.6.3</mongo.connector.version>
+
+        <!-- Other Data Source Connectors -->
+
+        <sap.connector.version>3.0</sap.connector.version>
+        <hbase.connector.version>1.3.1</hbase.connector.version>  
+        <hive.connector.version>2.3.2</hive.connector.version>
+        <teradata.connector.version>16.20.00.06</teradata.connector.version>
+        <hdfsavro.connector.version>1.7.4</hdfsavro.connector.version>
+        <hdfparquet.connector.version>1.9.0</hdfparquet.connector.version>
+        <apachehadoop.version>2.7.4</apachehadoop.version>
+  
+        <!-- Encoding -->
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    </properties>
+
+    <modules>
+        <module>des.api</module>
+        <module>des.client.java</module>
+        <module>des.controller</module>
+        <module>des.controller.bundle</module>
+        <module>des.adapter.hierarchical.couchbase</module>
+        <module>des.adapter.hierarchical.hdfsavro</module>
+        <module>des.adapter.hierarchical.hdfsparquet</module>
+        <module>des.adapter.hierarchical.mongo</module>
+        <module>des.adapter.other.sap</module>
+        <module>des.adapter.nosql.hbase</module> 
+        <module>des.adapter.filesystem.csv</module>
+        <module>des.adapter.relational.hive</module> 
+        <module>des.adapter.relational.mysql</module>
+        <module>des.adapter.relational.oracle</module>
+        <module>des.adapter.relational.sqlserver</module>
+        <module>des.adapter.relational.sqlserverkerbores</module>  
+        <module>des.adapter.relational.teradata</module>  
+        <module>des.jobs</module>
+        <module>des.stub</module>
+        <module>des.mock</module>
+        <module>des.mock.pump</module>
+        <module>des.node</module>
+        <module>des.transform.api</module>
+        <module>des.transform.standard</module>
+        <module>info</module>
+        <module>messaging.api</module>
+        <module>messaging.rabbitmq</module>
+        <module>encryption.api</module>
+        <module>encryption.local</module>
+        <module>encryption.service</module>
+        <module>encryption.service.api</module>
+        <module>encryption.service.client.java</module>
+    </modules>
+
+    <repositories>
+        <repository>
+            <id>thirdparty</id>
+            <name>thirdparty</name>
+            <url>http://40.79.76.111:8081/nexus/content/repositories/thirdparty</url>
+            <layout>default</layout>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </releases>
+        </repository>
+    </repositories>
+
+</project>

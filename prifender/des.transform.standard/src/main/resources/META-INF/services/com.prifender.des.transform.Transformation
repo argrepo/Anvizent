@@ -1,0 +1,3 @@
+com.prifender.des.transform.standard.CountryCodeTransformation
+com.prifender.des.transform.standard.TrimTransformation
+com.prifender.des.transform.standard.UpperCaseTransformation

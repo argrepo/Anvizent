@@ -1,0 +1,73 @@
+swagger: "2.0"
+info:
+  version: 1.0.0
+  title: Prifender Encryption Service
+schemes:
+  - https
+paths:
+  /reset:
+    get:
+      summary: Resets the encryption service and reloads keys
+      operationId: reset
+      responses:
+        204:
+          description: The encryption service status
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /encrypt:
+    post:
+      summary: Encrypts provided content
+      operationId: encrypt
+      consumes:
+        - text/plain;charset=UTF-8
+      parameters:
+        - name: value
+          in: body
+          description: The content to encrypt
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The encrypted content
+          schema:
+            type: string
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /decrypt:
+    post:
+      summary: Decrypts provided content
+      operationId: decrypt
+      consumes:
+        - text/plain;charset=UTF-8
+      parameters:
+        - name: value
+          in: body
+          description: The content to decrypt
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: The decrypted content
+          schema:
+            type: string
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+definitions:
+  Problem:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: string
+      message:
+        type: string

@@ -1,0 +1,16 @@
+Ave.
+Ave
+Avenue
+Blvd.
+Blvd
+Boulevard
+Ct.
+Ct
+Court
+Ln.
+Ln
+Lane
+St.
+St
+Street
+Way

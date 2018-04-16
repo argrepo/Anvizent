@@ -1,0 +1,398 @@
+{
+	"info": {
+		"name": "Data Extraction Service",
+		"_postman_id": "ac9d19c4-44f6-ea1f-c51d-f025a57ab074",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "supportedDataSourceTypes",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/supportedDataSourceTypes",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"supportedDataSourceTypes"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "dataSources",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "addDataSource-Relational",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"label\": \"Mock Relational DB\",\r\n    \"description\": \"My mock description\",\r\n    \"type\": \"relational.database.mock\",\r\n    \"connectionParams\": [\r\n        {\r\n            \"id\": \"user\",\r\n            \"value\": \"joe\"\r\n        },\r\n        {\r\n            \"id\": \"password\",\r\n            \"value\": \"somebody\"\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "addDataSource-Hierarchical",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"label\": \"Mock Hierarchical DB\",\r\n    \"description\": \"My mock description\",\r\n    \"type\": \"hierarchical.database.mock\",\r\n    \"connectionParams\": [\r\n        {\r\n            \"id\": \"user\",\r\n            \"value\": \"joe\"\r\n        },\r\n        {\r\n            \"id\": \"password\",\r\n            \"value\": \"somebody\"\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "findDataSource-Relational",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Relational_DB",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Relational_DB"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "findDataSource-Hierarchical",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Hierarchical_DB",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Hierarchical_DB"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "testConnection-Relational",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Relational_DB/testConnection",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Relational_DB",
+						"testConnection"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "testConnection-Hierarchical",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Hierarchical_DB/testConnection",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Hierarchical_DB",
+						"testConnection"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "metadata-Relational",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Relational_DB/metadata",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Relational_DB",
+						"metadata"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "metadata-Hierarchical",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataSources/Mock_Hierarchical_DB/metadata",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataSources",
+						"Mock_Hierarchical_DB",
+						"metadata"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "dataExtractionJobs",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "http://localhost:8080/des/dataExtractionJobs",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataExtractionJobs"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "startDataExtractionJob-Relational",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"dataSource\": \"Mock_Relational_DB\",\r\n    \"collection\": \"Employees\",\r\n    \"scope\": \"all\",\r\n    \"attributes\":\r\n    [\r\n        {\r\n            \"name\": \"id\"\r\n        },\r\n        {\r\n            \"name\": \"first_name\"\r\n        },\r\n        {\r\n            \"name\": \"last_name\"\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataExtractionJobs",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataExtractionJobs"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "startDataExtractionJob-Hierarchical",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"dataSource\": \"Mock_Hierarchical_DB\",\r\n    \"collection\": \"Employees\",\r\n    \"scope\": \"all\",\r\n    \"attributes\":\r\n    [\r\n        {\r\n            \"name\": \"first_name\"\r\n        },\r\n        {\r\n            \"name\": \"last_name\"\r\n        },\r\n        {\r\n            \"name\": \"phone_numbers\"\r\n        },\r\n        {\r\n            \"name\": \"addresses\",\r\n            \"children\":\r\n            [\r\n\t\t        {\r\n\t\t            \"name\": \"city\"\r\n\t\t        },\r\n\t\t        {\r\n\t\t            \"name\": \"state\"\r\n\t\t        }\r\n            ]\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataExtractionJobs",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataExtractionJobs"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "startDataExtractionJob-Hierarchical-2",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"dataSource\": \"Mock_Hierarchical_DB\",\r\n    \"collection\": \"Employees\",\r\n    \"scope\": \"all\",\r\n    \"attributes\":\r\n    [\r\n        {\r\n            \"name\": \"first_name\"\r\n        },\r\n        {\r\n            \"name\": \"last_name\"\r\n        },\r\n        {\r\n            \"name\": \"phone_numbers\"\r\n        },\r\n        {\r\n            \"name\": \"addresses\",\r\n            \"children\":\r\n            [\r\n\t\t        {\r\n\t\t            \"name\": \"street\"\r\n\t\t        }\r\n            ]\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataExtractionJobs",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataExtractionJobs"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "startDataExtractionJob-Hierarchical-Sample",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"dataSource\": \"Mock_Hierarchical_DB\",\r\n    \"collection\": \"Employees\",\r\n    \"scope\": \"sample\",\r\n    \"sampleSize\": \"100\",\r\n    \"attributes\":\r\n    [\r\n        {\r\n            \"name\": \"first_name\"\r\n        },\r\n        {\r\n            \"name\": \"last_name\"\r\n        },\r\n        {\r\n            \"name\": \"phone_numbers\"\r\n        },\r\n        {\r\n            \"name\": \"addresses\",\r\n            \"children\":\r\n            [\r\n\t\t        {\r\n\t\t            \"name\": \"city\"\r\n\t\t        },\r\n\t\t        {\r\n\t\t            \"name\": \"state\"\r\n\t\t        }\r\n            ]\r\n        }\r\n    ]\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/des/dataExtractionJobs",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"des",
+						"dataExtractionJobs"
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}

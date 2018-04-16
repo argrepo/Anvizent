@@ -1,0 +1,8 @@
+Australia;3
+Brazil;9
+China;12
+France;6
+Germany;8
+India;18
+USA;37
+Ukraine;7

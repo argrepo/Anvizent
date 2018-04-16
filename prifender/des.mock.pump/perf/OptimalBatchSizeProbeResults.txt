@@ -1,0 +1,44 @@
+Database: PostgreSQL 9.6.3 on x86_64-pc-mingw64, compiled by gcc.exe (Rev5, Built by MSYS2 project) 4.9.2, 64-bit
+Connection URL: jdbc:postgresql://52.232.98.18:5432/postgres?user=postgres&password=Prifender999!
+Table Namespace: postgres.test
+Insert Strategy: RegularStatementBatchingA
+Batch Sizes: 500, 1000, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000
+
+500: 2381/sec
+1000: 4870/sec
+2000: 9342/sec
+4000: 15746/sec
+6000: 19895/sec
+8000: 22933/sec
+10000: 25471/sec
+12000: 27796/sec
+14000: 27850/sec
+16000: 18130/sec
+18000: 30595/sec
+20000: 26712/sec
+
+500: 2447/sec
+1000: 4720/sec
+2000: 8690/sec
+4000: 15446/sec
+6000: 18897/sec
+8000: 21394/sec
+10000: 29099/sec
+12000: 23368/sec
+14000: 27087/sec
+16000: 29163/sec
+18000: 29098/sec
+20000: 26214/sec
+
+500: 2193/sec
+1000: 4736/sec
+2000: 9013/sec
+4000: 13798/sec
+6000: 18667/sec
+8000: 22748/sec
+10000: 23310/sec
+12000: 25353/sec
+14000: 25830/sec
+16000: 28816/sec
+18000: 28772/sec
+20000: 26285/sec

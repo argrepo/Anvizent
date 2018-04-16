@@ -1,0 +1,67 @@
+----------------
+
+Database: MySQL 5.6.39
+Connection URL: jdbc:mysql://prifender:gcEeYUs*ECg8@13.82.60.123:3306/employees_k010v2
+Table Namespace: employees_k010v2
+Batch Size: 1000
+
+PreparedStatementBatching: 8/sec (2000 records in 3.85 min)
+PreparedStatementNoBatching: 4/sec (1000 records in 3.61 min)
+RegularStatementBatchingA: 4165/sec (500000 records in 2.00 min)
+RegularStatementBatchingB: failed
+RegularStatementNoBatching: 4/sec (1000 records in 3.56 min)
+
+----------------
+
+Database: MySQL 5.6.39
+Connection URL: jdbc:mysql://prifender:gcEeYUs*ECg8@13.82.60.123:3306/employees_k010v2?rewriteBatchedStatements=true
+Table Namespace: employees_k010v2
+Batch Size: 1000
+
+PreparedStatementBatching: 4839/sec (581000 records in 2.00 min)
+PreparedStatementNoBatching: 6/sec (1000 records in 2.70 min)
+RegularStatementBatchingA: 5399/sec (648000 records in 2.00 min)
+RegularStatementBatchingB: failed
+RegularStatementNoBatching: 6/sec (1000 records in 2.74 min)
+
+----------------
+
+Database: Oracle Database 10g Enterprise Edition Release 10.2.0.4.0 - 64bi
+Connection URL: jdbc:oracle:thin:SYSTEM/oracle123@52.232.98.18:1522:orcl1
+Table Namespace: SYSTEM
+Batch Size: 1000
+
+PreparedStatementBatching: 4840/sec (581000 records in 2.00 min)
+PreparedStatementNoBatching: 4/sec (1000 records in 3.47 min)
+RegularStatementBatchingA: failed
+RegularStatementBatchingB: 1027/sec (124000 records in 2.01 min)
+RegularStatementNoBatching: 4/sec (1000 records in 3.41 min)
+
+----------------
+
+Database: Microsoft SQL Server 2017 (RTM-CU3-GDR) (KB4052987) - 14.0.3015.40 (X64) 
+Connection URL: jdbc:sqlserver://137.117.19.172:1433;databaseName=perf_test;user=prifender;password=gcEeYUs*ECg8
+Table Namespace: perf_test.hr
+Batch Size: 1000
+
+PreparedStatementBatching: 340/sec (41000 records in 2.01 min)
+PreparedStatementNoBatching: 37/sec (5000 records in 2.21 min)
+RegularStatementBatchingA: 9246/sec (1110000 records in 2.00 min)
+RegularStatementBatchingB: 369/sec (45000 records in 2.03 min)
+RegularStatementNoBatching: 37/sec (5000 records in 2.22 min)
+
+----------------
+
+Database: PostgreSQL 9.6.3 on x86_64-pc-mingw64, compiled by gcc.exe (Rev5, Built by MSYS2 project) 4.9.2, 64-bit
+Connection URL: jdbc:postgresql://52.232.98.18:5432/postgres?user=postgres&password=Prifender999!
+Table Namespace: postgres.test
+Batch Size: 1000
+
+PreparedStatementBatching: 1208/sec (145000 records in 2.00 min)
+PreparedStatementNoBatching: 4/sec (1000 records in 3.46 min)
+RegularStatementBatchingA: 4515/sec (542000 records in 2.00 min)
+RegularStatementBatchingB: 1208/sec (145000 records in 2.00 min)
+RegularStatementNoBatching: 4/sec (1000 records in 3.42 min)
+
+----------------
+

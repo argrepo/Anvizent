@@ -1,0 +1,6 @@
+France;6
+Germany;8
+India;18
+UK;23
+USA;43
+Ukraine;7

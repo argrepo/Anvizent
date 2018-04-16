@@ -1,0 +1,1 @@
+${prifender.version.full}

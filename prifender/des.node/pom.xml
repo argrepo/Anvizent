@@ -1,0 +1,71 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>des.prifender</groupId>
+    <artifactId>des.node</artifactId>
+    <name>Prifender Data Extraction Service Node</name>
+
+    <parent>
+        <groupId>com.prifender</groupId>
+        <artifactId>prifender</artifactId>
+        <version>0.8.0-SNAPSHOT</version>
+    </parent>
+    
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring.boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commonslang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>messaging.rabbitmq</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>messaging.api</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>${jsonsimple.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>javax.json</artifactId>
+            <version>${glassfish.json.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>encryption.service.client.java</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

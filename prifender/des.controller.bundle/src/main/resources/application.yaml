@@ -1,0 +1,17 @@
+des:
+  home: ${DES_HOME:../des.jobs/target/jobs}
+server:
+  contextPath: /des
+  port: ${DES_PORT:8080}
+spring:
+  application:
+    name: Prifender Data Extraction Service
+  jackson:
+    default-property-inclusion: NON_NULL
+info:
+  app:
+    name: Prifender
+    module: ${spring.application.name}
+    copyright: Copyright (c) 2018 Prifender
+  java:
+    version: ${java.runtime.version}

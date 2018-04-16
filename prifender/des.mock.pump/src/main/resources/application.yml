@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: Prifender Mock Data Pump
+logging:
+  level:
+    root: WARN
+mock:
+  des:
+    url: http://localhost:8080/des
+  data:
+    size: 10000
+    minimal: false
+perf:
+  parallel:
+    processes: 10
+  batch:
+    size: 1000
+  probe:
+    optimalBatchSize:
+      batchSizes: 500, 1000, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000
+database:
+  url: ${DB_URL}
+  namespace: ${DB_NAMESPACE}

@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: Prifender Encryption Service
+info:
+  app:
+    name: Prifender
+    module: ${spring.application.name}
+    copyright: Copyright (c) 2018 Prifender
+  java:
+    version: ${java.runtime.version}
+server:
+  port: 8888

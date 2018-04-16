@@ -1,0 +1,666 @@
+swagger: "2.0"
+info:
+  version: 1.0.0
+  title: Prifender Data Extraction Service
+basePath: /des
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /supportedDataSourceTypes:
+    get:
+      summary: Lists the supported data source types
+      operationId: listSupportedDataSourceTypes
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/DataSourceType'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataSources:
+    get:
+      summary: Lists the data source connection definitions
+      operationId: listDataSources
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/DataSource'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    post:
+      summary: Adds a new data source connection definition
+      operationId: addDataSource
+      consumes:
+        - application/json
+      parameters:
+        - name: dataSource
+          in: body
+          description: The data source connection definition to add
+          required: true
+          schema:
+            $ref: '#/definitions/DataSource'
+      responses:
+        200:
+          description: The data source connection definition, with the id adjusted if necessary
+          schema:
+            $ref: '#/definitions/DataSource'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataSources/{id}:
+    get:
+      summary: Finds a data source connection definition by id
+      operationId: findDataSourceById
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data source connection definition to find
+          required: true
+          type: string
+      responses:
+        200:
+          description: The data source connection definition
+          schema:
+            $ref: '#/definitions/DataSource'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    put:
+      summary: Updates a data source connection definition
+      operationId: updateDataSource
+      consumes:
+        - application/json
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data source connection definition to update
+          required: true
+          type: string
+        - name: dataSource
+          in: body
+          description: The updated data source connection definition
+          required: true
+          schema:
+            $ref: '#/definitions/DataSource'
+      responses:
+        204:
+          description: The data source connection definition was updated
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    delete:
+      summary: Deletes a data source connection definition by id
+      operationId: deleteDataSourceById
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data source connection definition to delete
+          required: true
+          type: string
+      responses:
+        204:
+          description: The data source connection definition was deleted
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataSources/{id}/testConnection:
+    get:
+      summary: Determines if the Data Extraction Service is able to connect to the data source
+      operationId: testConnection
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data source connection
+          required: true
+          type: string
+      responses:
+        200:
+          description: The data source connection status
+          schema:
+            $ref: '#/definitions/ConnectionStatus'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataSources/{id}/metadata:
+    get:
+      summary: Returns the metadata of the data source
+      operationId: getMetadata
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data source connection
+          required: true
+          type: string
+      responses:
+        200:
+          description: The data source metadata
+          schema:
+            $ref: '#/definitions/Metadata'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataExtractionJobs:
+    get:
+      summary: Lists the data extraction jobs
+      operationId: listDataExtractionJobs
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/DataExtractionJob'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    post:
+      summary: Starts a new data extraction job
+      operationId: startDataExtractionJob
+      consumes:
+        - application/json
+      parameters:
+        - name: dataExtractionSpec
+          in: body
+          description: The data extraction specification
+          required: true
+          schema:
+            $ref: '#/definitions/DataExtractionSpec'
+      responses:
+        200:
+          description: The started data extraction job
+          schema:
+            $ref: '#/definitions/DataExtractionJob'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataExtractionJobs/{id}:
+    get:
+      summary: Finds a data extraction job by id
+      operationId: findDataExtractionJobById
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data extraction job to find
+          required: true
+          type: string
+      responses:
+        200:
+          description: The data extraction job information
+          schema:
+            $ref: '#/definitions/DataExtractionJob'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    delete:
+      summary: Deletes a data extraction job by id, aborting a running job if necessary
+      operationId: deleteDataExtractionJobById
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data extraction job to delete
+          required: true
+          type: string
+      responses:
+        204:
+          description: The data extraction job was deleted
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataExtractionJobs/{id}/pause:
+    post:
+      summary: Pauses the data extraction job
+      operationId: pauseDataExtractionJob
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data extraction job
+          required: true
+          type: string
+      responses:
+        204:
+          description: The data extraction job was paused
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /dataExtractionJobs/{id}/resume:
+    post:
+      summary: Resumes the data extraction job
+      operationId: resumeDataExtractionJob
+      parameters:
+        - name: id
+          in: path
+          description: The id of the data extraction job
+          required: true
+          type: string
+      responses:
+        204:
+          description: The data extraction job was resumed
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+  /transformations:
+    get:
+      summary: Lists all of the available transformations
+      operationId: listTransformations
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/TransformationDef'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+    post:
+      summary: Adds a new transformation to the library of transformations available during data extraction
+      operationId: addTransformation
+      consumes:
+        - multipart/form-data
+      parameters:
+        - in: formData
+          name: trFile
+          type: file
+          description: The JAR file with the implementation of a transformation
+      responses:
+        200:
+          description: The transformation was added to the library
+          schema:
+            $ref: '#/definitions/TransformationDef'
+        400:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Problem'
+definitions:
+  DataSourceType:
+    type: object
+    required:
+      - id
+      - label
+      - connectionParams
+    properties:
+      id:
+        type: string
+        description: The unique type id of a data source
+      label:
+        type: string
+        description: The user friendly name of the data source type
+      connectionParams:       
+        type: array
+        description: The definitions of the parameters required for making a connection to the data source
+        items:
+          $ref: '#/definitions/ConnectionParamDef'
+  ConnectionParamDef:
+    type: object
+    required: 
+      - id
+      - label
+    properties:
+      id:
+        type: string
+        description: The unique id of the parameter within a connection parameters collection
+      label:
+        type: string
+        description: The user friend name of the connection parameter
+      description:
+        type: string
+        description: The description of the purpose and the usage of the connection parameter
+      type:
+        type: string
+        description: The data type of the connection parameter
+        enum:
+          - boolean
+          - integer
+          - string
+          - password
+        default: string
+      required:
+        type: boolean
+        description: Indicates whether the connection parameter must be specified
+        default: true
+  DataSource:
+    type: object
+    required:
+      - id
+      - label
+      - type
+      - connectionParams
+    properties:
+      id:
+        type: string
+        description: The unique id of a connected data source
+      label:
+        type: string
+        description: The user friendly name of the connected data source
+      description:
+        type: string
+        description: The description of the connected data source
+      type:
+        type: string
+        description: The type of the connected data source
+      connectionParams:
+        type: array
+        description: The specified connection parameters
+        items:
+          $ref: '#/definitions/ConnectionParam'
+  ConnectionParam:
+    type: object
+    required: 
+      - id
+      - value
+    properties:
+      id:
+        type: string
+        description: The unique id of the parameter within a connection parameters collection
+      value:
+        type: string
+        description: The value of the connection parameter
+  ConnectionStatus:
+    type: object
+    required:
+       - code
+       - message
+    properties:
+      code:
+        type: string
+        description: Indicates whether connection was established or not
+        enum:
+          - success
+          - failure
+      message:
+        type: string
+        description: The message that provides more detail relating to the status code
+  Metadata:
+    type: object
+    properties:
+      objects:
+        type: array
+        description: The root objects stored in the data source
+        items:
+          $ref: '#/definitions/NamedType'
+      types:
+        type: array
+        description: The types that are used as part of object definitions (used for handling recursive structures) 
+        items:
+          $ref: '#/definitions/NamedType'
+  Type:
+    type: object
+    required:
+      - kind
+    properties:
+      kind:
+        type: string
+        description: The kind of schema type
+        enum:
+          - value
+          - list
+          - union
+          - object
+          - reference
+      dataType:
+        type: string
+        description: The data type (use only for value kind)
+        enum:
+          - boolean
+          - integer
+          - float
+          - decimal
+          - currency
+          - date
+          - time
+          - string
+          - binary
+      entryType:
+        description: The type of the list entry (use only for list kind)
+        $ref: '#/definitions/Type'
+      possibleTypes:
+        type: array
+        description: The possible types (use only for union kind)
+        items:
+          $ref: '#/definitions/Type'
+      attributes:
+        type: array
+        description: The attributes of the object (use only for object kind)
+        items:
+          $ref: '#/definitions/NamedType'
+      constraints:
+        type: array
+        description: The constraints of the object (use only for object kind)
+        items:
+          $ref: '#/definitions/Constraint'
+      reference:
+        type: string
+        description: The name of a global type declared in the data source metadata (use only for reference kind)
+  NamedType:
+    type: object
+    required:
+      - name
+      - type
+    properties:
+      name:
+        type: string
+        description: The name of the attribute
+      type:
+        description: The type of the attribute
+        $ref: '#/definitions/Type'
+  Constraint:
+    type: object
+    required:
+      - kind
+      - attributes
+    properties:
+      kind:
+        type: string
+        description: The kind of constraint
+        enum:
+          - primary-key
+          - foreign-key
+      attributes:
+        type: array
+        description: The names of the local attributes that the constraint applies to
+        items: 
+          type: string
+      target:
+        type: string
+        description: The name of the target object for the foreign key constraint
+      targetAttributes:
+        type: array
+        description: The names of the target object attributes for the foreign key constraint
+        items:
+          type: string
+  DataExtractionSpec:
+    type: object
+    description: A data extraction job is tasked with extracting data from one collection of objects, such as an RDB table, within a data source. As each object, such as an RDB table row, is processed, a subset of attributes is extracted. These attributes are placed into a JSON block, preserving hierarchy. If transformations were specified for the attributes of interest, these are applied to the JSON block. A transformation can change both the attribute name and value. It can also transform nested content. For instance, concatenating separate postal address attributes like street, city and state into a single address string. Once transformations are complete, the JSON block is delivered to the system's message bus, tagged with the job id.
+    required:
+      - dataSource
+      - collection
+      - attributes
+      - scope
+    properties:
+      dataSource:
+        type: string
+        description: The id of a connected data source to extract data from
+      collection:
+        type: string
+        description: The path to a collection within the data source, such as schema/table in an RDB
+      attributes:
+        type: array
+        description: The attributes of interest within the specified collection, including the transformations that should be applied after extraction
+        items:
+          $ref: '#/definitions/DataExtractionAttribute'
+      scope:
+        type: string
+        description: Indicates whether all objects within a collection should be extracted or a random sampling of objects. In the case of sample, repeat requests for a sample from the same collection should not
+          return the same sample.
+        enum:
+          - all
+          - sample
+      sampleSize:
+        type: integer
+        description: Specifies sample size, if the scope is sample
+  DataExtractionAttribute:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the attribute that needs to be extracted by the data extraction job
+      children:
+        type: array
+        description: The child attributes of interest; if not specified and this attribute has children, rather than holding an atomic value, all nested content is to be extracted
+        items:
+          $ref: '#/definitions/DataExtractionAttribute'
+      transformations:
+        type: array
+        description: The transformations to apply, in order, to the attribute after it has been extracted
+        items:
+          $ref: '#/definitions/DataTransformation'
+  DataTransformation:
+    type: object
+    required:
+      - function
+    properties:
+      function:
+        type: string
+        description: The name of a transformation function registered with the Data Extraction Service
+      parameters:
+        type: array
+        description: The additional parameters that the function will receive in addition to the attribute that's to be transformed
+        items:
+          type: string
+  DataExtractionJob:
+    type: object
+    required:
+      - id
+      - state
+    properties:
+      id:
+        type: string
+        description: The unique id of the data extraction job
+      state:
+        type: string
+        description: abc
+        enum:
+          - waiting
+          - running
+          - paused
+          - succeeded
+          - failed
+      outputMessagingQueue:
+        type: string
+        description: The queue on the messaging service that receives the data extracted by this job
+      failureMessage:
+        type: string
+        description: The error message if the job is in the failed state
+      timeStarted:
+        type: string
+        description: The date and time that the job was started
+      timeCompleted:
+        type: string
+        description: The date and time that the job was completed or when it failed
+      objectCount:
+        type: integer
+        description: The total number of objects that the job will extract when it completes
+      objectsExtracted:
+        type: integer
+        description: The number of objects extracted so far by the job
+      chunksCount:
+        type: integer
+        description: The number of chunks extracted so far by the job
+      dataExtractionChunks:       
+        type: array
+        description: The chunks of the data extraction job
+        items:
+          $ref: '#/definitions/DataExtractionChunk'
+  DataExtractionChunk:
+      type: object
+      required:
+        - chunkId
+        - state
+      properties:
+        chunkId:
+          type: string
+          description: The unique id of the data extraction job chunk
+        jobId:
+          type: string
+          description: The job id of the data extraction job
+        state:
+          type: string
+          description: abc
+          enum:
+            - waiting
+            - running
+            - paused
+            - succeeded
+            - failed
+        timeStarted:
+          type: string
+          description: The date and time that the chunk was started
+        timeCompleted:
+          type: string
+          description: The date and time that the chunk was completed or when it failed  
+        offset:
+          type: integer
+          description: The offset of chunk
+        limit:
+          type: integer
+          description: The limit of chunk
+        nodeId:
+          type: string
+          description: The excecution node id so far by the chunk
+        numberOfFailedAttempts:
+          type: integer
+          description: The number of failed attempts when chunk is in the failed state  
+        lastFailureMessage:
+          type: string
+          description: The error message if the chunk is in the failed state  
+        objectsExtracted:
+          type: integer
+          description: The number of objects extracted so far by the chunk
+  TransformationDef:
+    type: object
+    required:
+      - name
+      - description
+    properties:
+      name:
+        type: string
+        description: The unique name of the transformation
+      description:
+        type: string
+        description: The description of the transformation
+  Problem:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: string
+      message:
+        type: string
