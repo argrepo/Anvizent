@@ -104,7 +104,16 @@
             <artifactId>des.adapter.relational.teradata</artifactId>
             <version>${prifender.version}</version>
         </dependency>    
-    
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>des.adapter.hierarchical.hdfsorc</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>   
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>des.adapter.hierarchical.cassandra</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>   
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-tomcat</artifactId>

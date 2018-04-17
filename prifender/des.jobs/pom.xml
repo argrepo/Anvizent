@@ -269,7 +269,34 @@
                                     <overWrite>true</overWrite>
                                     <outputDirectory>target/jobs/Teradata/COMMON_ETLJOBS</outputDirectory>
                                 </artifactItem>
-
+                                <artifactItem>
+                                    <groupId>com.prifender</groupId>
+                                    <artifactId>messaging.api</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>target/jobs/Cassandra/COMMON_ETLJOBS</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.prifender</groupId>
+                                    <artifactId>messaging.rabbitmq</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>target/jobs/Cassandra/COMMON_ETLJOBS</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.prifender</groupId>
+                                    <artifactId>messaging.api</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>target/jobs/HDFSORC/COMMON_ETLJOBS</outputDirectory>
+                                </artifactItem>
+                                 <artifactItem>
+                                    <groupId>com.prifender</groupId>
+                                    <artifactId>messaging.rabbitmq</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>target/jobs/HDFSORC/COMMON_ETLJOBS</outputDirectory>
+                                </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
