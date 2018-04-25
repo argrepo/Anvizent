@@ -342,6 +342,9 @@ definitions:
         type: boolean
         description: Indicates whether the connection parameter must be specified
         default: true
+      defaultValue:
+        type: string
+        description: The default value of the connection parameter
   DataSource:
     type: object
     required:
@@ -598,35 +601,25 @@ definitions:
       objectsExtracted:
         type: integer
         description: The number of objects extracted so far by the job
-      chunksCount:
+      tasksCount:
         type: integer
         description: The number of chunks extracted so far by the job
-      dataExtractionChunks:       
+      DataExtractionTasks:      
         type: array
         description: The chunks of the data extraction job
         items:
-          $ref: '#/definitions/DataExtractionChunk'
-  DataExtractionChunk:
+          $ref: '#/definitions/DataExtractionTaskResults'
+  DataExtractionTaskResults:
       type: object
       required:
-        - chunkId
-        - state
+        - taskId
       properties:
-        chunkId:
+        taskId:
           type: string
           description: The unique id of the data extraction job chunk
         jobId:
           type: string
           description: The job id of the data extraction job
-        state:
-          type: string
-          description: abc
-          enum:
-            - waiting
-            - running
-            - paused
-            - succeeded
-            - failed
         timeStarted:
           type: string
           description: The date and time that the chunk was started
@@ -639,9 +632,6 @@ definitions:
         limit:
           type: integer
           description: The limit of chunk
-        nodeId:
-          type: string
-          description: The excecution node id so far by the chunk
         numberOfFailedAttempts:
           type: integer
           description: The number of failed attempts when chunk is in the failed state  
@@ -673,3 +663,30 @@ definitions:
         type: string
       message:
         type: string
+  DataExtractionTask:
+    type: object
+    required:
+      - taskId
+      - jobId
+    properties:
+      taskId:
+        type: string
+        description: The unique id of the data extraction job chunk
+      jobId:
+        type: string
+        description: The data extraction job id 
+      typeId:
+        type: string
+        description: The data extraction job type id 
+      contextParameters:
+        type: object
+        description: The context parameters for etl job
+        additionalProperties:
+          type: string
+          type: string
+      numberOfFailedAttempts:
+          type: integer
+          description: The number of failed attempts when chunk is in the failed state  
+      lastFailureMessage:
+         type: string
+         description: The error message if the chunk is in the failed state

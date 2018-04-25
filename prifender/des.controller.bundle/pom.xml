@@ -10,10 +10,15 @@
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>1.1.0-SNAPSHOT</version>
     </parent>
 
     <dependencies>
+        <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>info</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.controller</artifactId>
@@ -29,16 +34,16 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
             <version>${spring.boot.version}</version>
         </dependency>
-         <dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.mysql</artifactId>
             <version>${prifender.version}</version>
         </dependency>
-       <dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.oracle</artifactId>
             <version>${prifender.version}</version>
-        </dependency> 
+        </dependency>
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.sqlserver</artifactId>
@@ -54,97 +59,58 @@
             <artifactId>des.adapter.hierarchical.couchbase</artifactId>
             <version>${prifender.version}</version>
         </dependency>
-       <!-- <dependency> 
-        <groupId>com.prifender</groupId>
-        <artifactId>des.adapter.other.sap</artifactId> 
-        <version>${prifender.version}</version>
-         </dependency>   -->
+        <!-- Disable SAP adapter until we can test it -->
+        <!-- <dependency> <groupId>com.prifender</groupId> <artifactId>des.adapter.other.sap</artifactId> 
+            <version>${prifender.version}</version> </dependency> -->
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.filesystem.csv</artifactId>
             <version>${prifender.version}</version>
-        </dependency>   
-          <dependency>
+        </dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.hierarchical.hdfsavro</artifactId>
             <version>${prifender.version}</version>
             <exclusions>
-            	<exclusion>
-				<groupId>com.sun.jersey</groupId>
-				<artifactId>jersey-core</artifactId>
-			</exclusion>
-			<exclusion>
-				<groupId>com.sun.jersey</groupId>
-				<artifactId>jersey-server</artifactId>
-			</exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-server</artifactId>
+                </exclusion>
             </exclusions>
-        </dependency> 
-          <dependency>
+        </dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.hierarchical.hdfsparquet</artifactId>
             <version>${prifender.version}</version>
-        </dependency>  
-           <dependency>
+        </dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.hive</artifactId>
             <version>${prifender.version}</version>
-        </dependency>   
-       <dependency>
+        </dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.nosql.hbase</artifactId>
             <version>${prifender.version}</version>
-        </dependency>  
-          <dependency>
+        </dependency>
+        <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.sqlserverkerbores</artifactId>
             <version>${prifender.version}</version>
-        </dependency>  
+        </dependency>
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.teradata</artifactId>
             <version>${prifender.version}</version>
-        </dependency>    
-        <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>des.adapter.hierarchical.hdfsorc</artifactId>
-            <version>${prifender.version}</version>
-        </dependency>   
-        <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>des.adapter.hierarchical.cassandra</artifactId>
-            <version>${prifender.version}</version>
-        </dependency>   
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-tomcat</artifactId>
-            <version>${spring.boot.version}</version>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>${maven.antrun.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <phase>compile</phase>
-                        <configuration>
-                            <target>
-                                <tstamp>
-                                    <format property="timestamp" pattern="yyyyMMdd-HHmm" timezone="GMT"/>
-                                </tstamp>
-                                <replace file="${project.basedir}/target/classes/application.yaml" token="PRIFENDER_VERSION" value="${prifender.version.base}.${timestamp}"/>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -158,41 +124,6 @@
                 </executions>
             </plugin>
         </plugins>
-        <pluginManagement>
-        	<plugins>
-        		<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-        		<plugin>
-        			<groupId>org.eclipse.m2e</groupId>
-        			<artifactId>lifecycle-mapping</artifactId>
-        			<version>1.0.0</version>
-        			<configuration>
-        				<lifecycleMappingMetadata>
-        					<pluginExecutions>
-        						<pluginExecution>
-        							<pluginExecutionFilter>
-        								<groupId>
-        									org.apache.maven.plugins
-        								</groupId>
-        								<artifactId>
-        									maven-antrun-plugin
-        								</artifactId>
-        								<versionRange>
-        									[1.8,)
-        								</versionRange>
-        								<goals>
-        									<goal>run</goal>
-        								</goals>
-        							</pluginExecutionFilter>
-        							<action>
-        								<ignore></ignore>
-        							</action>
-        						</pluginExecution>
-        					</pluginExecutions>
-        				</lifecycleMappingMetadata>
-        			</configuration>
-        		</plugin>
-        	</plugins>
-        </pluginManagement>
     </build>
 
 </project>

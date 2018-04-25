@@ -1,61 +1,112 @@
 package com.prifender.des.adapter.filesystem.csv;
 
+import static com.prifender.des.util.DatabaseUtil.createDir;
+import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
+import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
+import static com.prifender.des.util.DatabaseUtil.getDataType;
+import static com.prifender.des.util.DatabaseUtil.getUUID;
+import static com.prifender.des.util.DatabaseUtil.removeLastChar;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.csv.QuoteMode;
-import org.apache.commons.lang.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.prifender.des.DataExtractionServiceException;
-import com.prifender.des.controller.DataExtractionThread;
-import com.prifender.des.controller.DataExtractionUtil;
 import com.prifender.des.controller.DataSourceAdapter;
 import com.prifender.des.model.ConnectionParamDef;
 import com.prifender.des.model.ConnectionParamDef.TypeEnum;
 import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.DataExtractionJob;
 import com.prifender.des.model.DataExtractionSpec;
-import com.prifender.des.model.DataExtractionSpec.ScopeEnum;
+import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
 import com.prifender.des.model.NamedType;
 import com.prifender.des.model.Problem;
 import com.prifender.des.model.Type;
-import com.prifender.des.util.DatabaseUtil;
-import com.prifender.encryption.service.client.EncryptionServiceClient;
-import com.prifender.messaging.api.MessagingConnectionFactory;
 
 @Component
-public final class CSVDataSourceAdapter implements DataSourceAdapter {
+public final class CSVDataSourceAdapter extends DataSourceAdapter {
 
-	@Autowired
-	DatabaseUtil databaseUtilService;
+	 
 	@Value( "${des.home}" )
 	private String desHome;
-	private static final String TYPE_ID = "CSV";
-	@Autowired
-	EncryptionServiceClient encryptionServiceClient;
-	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label("CSV")
-			.addConnectionParamsItem(new ConnectionParamDef().id("FileName").label("FileName").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Delimiter").label("Delimiter").type(TypeEnum.STRING).required(false))
-			.addConnectionParamsItem(new ConnectionParamDef().id("CSVHeaderExists").label("CSVHeaderExists").type(TypeEnum.BOOLEAN));
+	
+   private static final String JOB_NAME = "local_project.prifender_csv_v1_0_1.Prifender_CSV_v1";
+	
+	private static final String DEPENDENCY_JAR = "prifender_csv_v1_0_1.jar";
+	
+	private static final String JOB_NAME_WithoutHeader = "local_project.prifender_csv_without_header_v1_0_1.Prifender_CSV_Without_Header_v1";
+	
+	private static final String DEPENDENCY_JAR_WithoutHeader = "prifender_csv_without_header_v1_0_1.jar";
+
+	private static final int  MIN_THRESHOULD_ROWS = 100000;		
+	
+	private static final int  MAX_THRESHOULD_ROWS = 200000;	
+	
+	public static final String TYPE_ID = "CSV";
+	public static final String TYPE_LABEL = "CSV";
+	
+	  // File
+
+    public static final String PARAM_FILE_ID = "File";
+    public static final String PARAM_FILE_LABEL = "File";
+    public static final String PARAM_FILE_DESCRIPTION = "The path of the file";
+    
+    public static final ConnectionParamDef PARAM_FILE 
+        = new ConnectionParamDef().id( PARAM_FILE_ID ).label( PARAM_FILE_LABEL ).description( PARAM_FILE_DESCRIPTION ).type( TypeEnum.STRING );
+    
+	  // Delimiter
+
+    public static final String PARAM_DELIMITER_ID = "Delimiter";
+    public static final String PARAM_DELIMITER_LABEL = "Delimiter";
+    public static final String PARAM_DELIMITER_DESCRIPTION = "The delimeter of the file";
+    
+    public static final ConnectionParamDef PARAM_DELIMITER
+        = new ConnectionParamDef().id( PARAM_DELIMITER_ID ).label( PARAM_DELIMITER_LABEL ).description( PARAM_DELIMITER_DESCRIPTION ).type( TypeEnum.STRING ).required(false);
+    
+    // File Regular Expression
+
+    public static final String PARAM_FILE_REG_EXP_ID = "FileRegExp";
+    public static final String PARAM_FILE_REG_EXP_LABEL = "File Regular Expression";
+    public static final String PARAM_FILE_REG_EXP_DESCRIPTION = "The file regular expression";
+    
+    public static final ConnectionParamDef PARAM_FILE_REG_EXP
+        = new ConnectionParamDef().id( PARAM_FILE_REG_EXP_ID ).label( PARAM_FILE_REG_EXP_LABEL ).description( PARAM_FILE_REG_EXP_DESCRIPTION ).type( TypeEnum.STRING ).required(false);
+    
+    // Header Exists
+
+    public static final String PARAM_HEADER_EXISTS_ID = "HeaderExists";
+    public static final String PARAM_HEADER_EXISTS_LABEL = "Header Exists";
+    public static final String PARAM_HEADER_EXISTS_DESCRIPTION = "The headers are exists in file";
+    
+    public static final ConnectionParamDef PARAM_HEADER_EXISTS
+        = new ConnectionParamDef().id( PARAM_HEADER_EXISTS_ID ).label( PARAM_HEADER_EXISTS_LABEL ).description( PARAM_HEADER_EXISTS_DESCRIPTION ).type( TypeEnum.BOOLEAN ).required(false);
+    
+    
+	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label(TYPE_LABEL)
+			.addConnectionParamsItem(PARAM_FILE)
+			.addConnectionParamsItem(PARAM_DELIMITER)
+			.addConnectionParamsItem(PARAM_FILE_REG_EXP)
+			.addConnectionParamsItem(PARAM_HEADER_EXISTS);
 
 	@Override
 	public DataSourceType getDataSourceType() {
@@ -80,18 +131,19 @@ public final class CSVDataSourceAdapter implements DataSourceAdapter {
 		Metadata metadata = null;
 		boolean connection ;
 		connection = getFileSystemExists(ds);
-		final String fileName = databaseUtilService.getConnectionParam(ds, "FileName");
-		final String delimiter = databaseUtilService.getConnectionParam(ds, "Delimiter");
-		final boolean csvHeaderExists = Boolean.valueOf(databaseUtilService.getConnectionParam(ds, "CSVHeaderExists"));
+		final String fileName = getConnectionParam(ds, PARAM_FILE_ID);
+		final String delimiter = getConnectionParam(ds, PARAM_DELIMITER_ID);
+		final boolean csvHeaderExists = Boolean.valueOf(getConnectionParam(ds, PARAM_HEADER_EXISTS_ID));
+ 
 		metadata = metadataByConnection(connection,fileName,delimiter,csvHeaderExists);
 		return metadata;
 	}
 
-	@Override
-	public int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
-
-		final String delimiter = databaseUtilService.getConnectionParam(ds, "Delimiter");
-		final boolean csvHeaderExists = Boolean.valueOf(databaseUtilService.getConnectionParam(ds, "CSVHeaderExists"));
+	private int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
+		
+		final String delimiter = getConnectionParam(ds, PARAM_DELIMITER_ID);
+		final boolean csvHeaderExists = Boolean.valueOf(getConnectionParam(ds, PARAM_HEADER_EXISTS_ID));
+ 
 
 		int count = 0;
 		count = count + getCsvRecordCount(tableName,delimiter,csvHeaderExists);
@@ -115,51 +167,15 @@ public final class CSVDataSourceAdapter implements DataSourceAdapter {
 		}
 		return count;
 	}
-	
-	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec,final MessagingConnectionFactory messaging) throws DataExtractionServiceException {
-		StartResult startResult = null;
-		try {
-			
-			String fileName = spec.getCollection();
-			int dataSize = getCountRows(ds, fileName);
-			
-			if (dataSize == 0) {
-				throw new DataExtractionServiceException(
-						new Problem().code("meta data error").message("No Data in the file :" + fileName));
-			}
-			
-			final String delimiter = databaseUtilService.getConnectionParam(ds, "Delimiter");
-			final boolean csvHeaderExists = Boolean.valueOf(databaseUtilService.getConnectionParam(ds, "CSVHeaderExists"));
-			
-			DataExtractionJob job = new DataExtractionJob()
-					.id(spec.getDataSource() + "-" + UUID.randomUUID().toString())
-					.state(DataExtractionJob.StateEnum.WAITING);
-			ExecutorService executor = Executors.newSingleThreadExecutor();
-			try {
-				String adapterHome = DataExtractionUtil.createDir(this.desHome, TYPE_ID);
-				DataExtractionThread dataExtractionExecutor = new CSVDataExtractionExecutor(ds, spec, job, dataSize, adapterHome, fileName, delimiter,csvHeaderExists,messaging,encryptionServiceClient);
-				executor.execute(dataExtractionExecutor);
-				startResult = new StartResult(job, dataExtractionExecutor);
-			} catch (Exception err) {
-				throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-			} finally {
-				executor.shutdown();
-				executor.awaitTermination(1, TimeUnit.SECONDS);
-			}
-
-		} catch (InterruptedException err) {
-			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-		}
-		return startResult;
-	}
+  
 	
 	private boolean getFileSystemExists(DataSource ds) throws DataExtractionServiceException {
 		if (ds == null) {
 			throw new DataExtractionServiceException(
 					new Problem().code("datasource error").message("datasource is null"));
 		}
-		final String fileName = databaseUtilService.getConnectionParam(ds, "FileName");
+		final String fileName = getConnectionParam(ds, PARAM_FILE_ID);
+ 
 		return getFileName(fileName);
 	}
 
@@ -274,7 +290,7 @@ public final class CSVDataSourceAdapter implements DataSourceAdapter {
 				type = csvHeader.getClass().getSimpleName().toString().toUpperCase();
 			}
 			
-			Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(databaseUtilService.getDataType(type));
+			Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(type));
 			attributeForColumn.setType(typeForCoumn);
 			attributeList.add(attributeForColumn);
 		}
@@ -392,7 +408,266 @@ public final class CSVDataSourceAdapter implements DataSourceAdapter {
 
 		return fileList;
 	}
+	@Override
+	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec ,int containersCount) throws DataExtractionServiceException 
+	{
+		StartResult startResult = null;
+		try {
+			
+			String fileName = spec.getCollection();
+			
+			int rowCount = getCountRows(ds, fileName);
 
+			if (rowCount == 0) 
+			{
+				throw new DataExtractionServiceException( new Problem().code("meta data error").message("No Rows Found in file :" + fileName));
+			}
+			
+			DataExtractionJob job = new DataExtractionJob()
+					
+					.id(spec.getDataSource() + "-" + new File(fileName).getName() + "-" + getUUID())
+					
+					.state(DataExtractionJob.StateEnum.WAITING);
+ 
+			String adapterHome = createDir(this.desHome, TYPE_ID);
+			
+			startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, rowCount, adapterHome , containersCount));
+				
+		} 
+		catch (Exception err) 
+		{
+			
+			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
+		}
+		
+		return startResult;
+	}
+
+	/**
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param rowCount
+	 * @param adapterHome
+	 * @param containersCount
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec ,
+			
+			DataExtractionJob job,int rowCount ,String adapterHome , int containersCount) throws DataExtractionServiceException{
+		
+		int totalSampleSize = 0;
+		
+		int tasksCount = 0;
+		
+		List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
+		
+		try
+		{
+			if ( spec.getScope( ).equals( DataExtractionSpec.ScopeEnum.SAMPLE ) )
+			{
+				
+				if ( spec.getSampleSize( ) == null )
+				{
+					
+					throw new DataExtractionServiceException( new Problem( ).code( "Meta data error" ).message( "sampleSize value not found" ) );
+					
+				}
+				
+				totalSampleSize = rowCount < spec.getSampleSize( ) ? rowCount : spec.getSampleSize( );
+				
+			}else
+			{
+				totalSampleSize = rowCount;
+			}
+			
+			 synchronized (job) {
+	        	   
+	        	   job.setOutputMessagingQueue("DES-" + job.getId());
+					
+	        	   job.objectsExtracted(0);
+			 }
+			
+			if (totalSampleSize <= MIN_THRESHOULD_ROWS ) {
+				
+				int offset = 1;
+				
+				dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  totalSampleSize ));
+				
+				tasksCount++;
+				
+			} else {
+				
+				int taskSampleSize = generateTaskSampleSize( totalSampleSize , containersCount );
+				
+				if ( taskSampleSize <= MIN_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MIN_THRESHOULD_ROWS ;						 
+				}
+				if ( taskSampleSize > MAX_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MAX_THRESHOULD_ROWS ;						 
+				}
+				
+				int noOfTasks = totalSampleSize / taskSampleSize ;			
+				
+				int remainingSampleSize = totalSampleSize % taskSampleSize;		
+				
+				for (int i = 0 ; i < noOfTasks ; i++) 
+				{
+					
+					int offset = taskSampleSize * i + 1;	
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  taskSampleSize ));
+					
+					tasksCount++;
+				}
+				
+				if (remainingSampleSize > 0) 
+				{								 
+					int offset = noOfTasks * taskSampleSize + 1;
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  remainingSampleSize ));
+					
+					tasksCount++;
+				}
+			}
+			 
+           synchronized (job) 
+           {
+        	   job.setTasksCount(tasksCount);
+        	   
+        	   job.setObjectCount(totalSampleSize);
+           }
+
+		} catch ( Exception e )
+		{
+			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
+		}
+		return dataExtractionJobTasks;
+	}
+
+	/**
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param adapterHome
+	 * @param offset
+	 * @param limit
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec ,
+			
+			DataExtractionJob job,String adapterHome,int offset,int limit) throws DataExtractionServiceException
+	{
+		String columnNames = null;
+		String jobName = null;
+		String dependencyJar = null ;
+		DataExtractionTask dataExtractionTask = new DataExtractionTask();
+		 
+		try
+		{
+		
+		final String fileName = spec.getCollection();
+		
+		final String delimiter = getConnectionParam(ds, PARAM_DELIMITER_ID);
+		
+		final boolean csvHeaderExists = Boolean.valueOf(getConnectionParam(ds, PARAM_HEADER_EXISTS_ID));
+		
+		final String fileRegExp = getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+		
+		
+		if(csvHeaderExists){
+			columnNames =  getDataSourceColumnNames(ds, spec,".");
+		}else{
+			String[] columns =  getDataSourceColumnNames(ds, spec,".").split("_");
+			columnNames = removeLastChar(columns[1]);
+		}
+		
+		if (csvHeaderExists) {
+			jobName = JOB_NAME;
+			dependencyJar = DEPENDENCY_JAR;
+		} else {
+			jobName = JOB_NAME_WithoutHeader;
+			dependencyJar = DEPENDENCY_JAR_WithoutHeader;
+		}
+ 
+		Map< String , String > contextParams = getContextParams( adapterHome , jobName ,
+				
+				columnNames , fileName,delimiter, job.getOutputMessagingQueue() ,fileRegExp, String.valueOf(offset) , String.valueOf( limit )  ,
+				
+				String.valueOf( DataExtractionSpec.ScopeEnum.SAMPLE ) , String.valueOf( limit ) );
+		
+		dataExtractionTask.taskId("DES-Task-"+ getUUID( ))
+						
+			                    .jobId( job.getId( ) )
+	                           
+	                            .typeId( TYPE_ID +"__"+jobName + "__" +dependencyJar )
+	                           
+	                            .contextParameters( contextParams )
+	                           
+	                            .numberOfFailedAttempts( 0 );
+		}
+		catch(Exception e)
+		{
+			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
+		}
+		return dataExtractionTask;
+	}
+ 
+
+	/**
+	 * @param jobFilesPath
+	 * @param jobName
+	 * @param dataSourceColumnNames
+	 * @param dataSourceFilePath
+	 * @param dataSourceDelimiter
+	 * @param jobId
+	 * @param fileRegExp
+	 * @param offset
+	 * @param limit
+	 * @param dataSourceScope
+	 * @param dataSourceSampleSize
+	 * @return
+	 * @throws IOException
+	 */
+	public Map<String, String> getContextParams(String jobFilesPath, String jobName, String dataSourceColumnNames,
+			
+			String dataSourceFilePath, String dataSourceDelimiter, String jobId,String fileRegExp,String offset, String limit,
+			
+			String dataSourceScope, String dataSourceSampleSize) throws IOException {
+
+		Map<String, String> ilParamsVals = new LinkedHashMap<>();
+
+		ilParamsVals.put("JOB_STARTDATETIME", getConvertedDate(new Date()));
+
+		ilParamsVals.put("FILE_PATH", jobFilesPath);
+
+		ilParamsVals.put("JOB_NAME", jobName);
+		
+		ilParamsVals.put("FILEREGEX", fileRegExp);
+
+		ilParamsVals.put("DATASOURCE_COLUMN_NAMES", dataSourceColumnNames);
+		
+		ilParamsVals.put("DATASOURCE_FILE_PATH", dataSourceFilePath);
+		
+		ilParamsVals.put("DATASOURCE_DELIMITER", dataSourceDelimiter);
+
+		ilParamsVals.put("JOB_ID", jobId);
+
+		ilParamsVals.put("OFFSET", offset);
+
+		ilParamsVals.put("LIMIT", limit);
+
+		ilParamsVals.put("SCOPE", dataSourceScope);
+
+		ilParamsVals.put("SAMPLESIZE", dataSourceSampleSize);
+
+		return ilParamsVals;
+
+	}
 }
 
 

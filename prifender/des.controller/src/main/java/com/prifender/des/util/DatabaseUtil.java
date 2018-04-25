@@ -1,27 +1,34 @@
 package com.prifender.des.util;
 
+import java.io.File;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-import org.springframework.stereotype.Component;
-
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.StringJoiner;
+import java.util.UUID;
+import javax.management.MalformedObjectNameException;
+import org.apache.commons.lang3.StringUtils;
 import com.prifender.des.model.ConnectionParam;
+import com.prifender.des.model.DataExtractionAttribute;
+import com.prifender.des.model.DataExtractionSpec;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.Metadata;
 import com.prifender.des.model.NamedType;
 import com.prifender.des.model.Type;
 import com.prifender.des.model.Type.DataTypeEnum;
 
-@Component
-public class DatabaseUtil {
+public final class DatabaseUtil {
 
 	/**
 	 * To close Connection object
 	 * @param connection
 	 */
-	public void closeSqlObject(Connection connection) {
+	public static void closeSqlObject(Connection connection) {
 		try {
 			if (connection != null && !connection.isClosed())
 				connection.close();
@@ -35,7 +42,7 @@ public class DatabaseUtil {
 	 * To close Statement object
 	 * @param statement
 	 */
-	public void closeSqlObject(Statement statement) {
+	public static void closeSqlObject(Statement statement) {
 		try {
 			if (statement != null && !statement.isClosed())
 				statement.close();
@@ -49,7 +56,7 @@ public class DatabaseUtil {
 	 * To close ResultSet object
 	 * @param resultSet
 	 */
-	public void closeSqlObject(ResultSet resultSet) {
+	public static void closeSqlObject(ResultSet resultSet) {
 		try {
 			if (resultSet != null && !resultSet.isClosed())
 				resultSet.close();
@@ -65,30 +72,9 @@ public class DatabaseUtil {
 	 * @param resultSet
 	 * @param statement
 	 */
-	public void closeSqlObject(ResultSet resultSet, Statement statement) {
+	public static void closeSqlObject(ResultSet resultSet, Statement statement) {
 		closeSqlObject(resultSet);
 		closeSqlObject(statement);
-	}
-	
-	/**
-	 * To  get the required connection parameter
-	 * @param ds
-	 * @param param
-	 * @return
-	 */
-	public final String getConnectionParam(final DataSource ds, final String param) {
-		if (ds == null) {
-			throw new IllegalArgumentException();
-		}
-		if (param == null) {
-			throw new IllegalArgumentException();
-		}
-		for (final ConnectionParam cp : ds.getConnectionParams()) {
-			if (cp.getId().equals(param)) {
-				return cp.getValue();
-			}
-		}
-		return null;
 	}
 	
 	/**
@@ -99,7 +85,7 @@ public class DatabaseUtil {
 	 * @return
 	 * @throws SQLException
 	 */
-	public int getCountRows(Connection con,String tableName) throws SQLException {
+	public static int getCountRows(Connection con,String tableName) throws SQLException {
 		int countRows = 0;
 		ResultSet resultSet = null;
 		Statement statement = null;
@@ -122,7 +108,7 @@ public class DatabaseUtil {
 	 * @param dataType
 	 * @return
 	 */
-	public DataTypeEnum getDataType(String dataType) {
+	public static DataTypeEnum getDataType(String dataType) {
 		DataTypeEnum dataTypeEnum = null;
 		if (dataType.equals("VARCHAR") || dataType.equals("TEXT") || dataType.equals("PICKLIST")
 				|| dataType.equals("VARCHAR2") || dataType.equals("NVARCHAR") || dataType.equals("NCHAR")
@@ -163,7 +149,13 @@ public class DatabaseUtil {
 	}
 	
 	
-	public boolean isValidColumn(Metadata metadata, final String tableName, final String columnName) {
+	/**
+	 * @param metadata
+	 * @param tableName
+	 * @param columnName
+	 * @return
+	 */
+	public static boolean isValidColumn(Metadata metadata, final String tableName, final String columnName) {
 		for (final NamedType table : metadata.getObjects()) {
 			if (table.getName().equals(tableName)) {
 				final Type entryType = table.getType().getEntryType();
@@ -179,7 +171,12 @@ public class DatabaseUtil {
 		return false;
 	}
 	
-	public boolean isValidTable(Metadata metadata, final String tableName) {
+	/**
+	 * @param metadata
+	 * @param tableName
+	 * @return
+	 */
+	public static boolean isValidTable(Metadata metadata, final String tableName) {
 		for (final NamedType table : metadata.getObjects()) {
 			if (table.getName().equals(tableName)) {
 				return true;
@@ -187,10 +184,132 @@ public class DatabaseUtil {
 		}
 		return false;
 	}
+	
+ public static class Temp {
+		
+		private Temp() 
+		{
+		}
 
-	public String removeLastChar(String str) {
-		return str.substring(0, str.length() - 1);
+		public static final String TEMP_FILE_DIR;
+		
+		static 
+		{
+			TEMP_FILE_DIR = System.getProperty("java.io.tmpdir") + "/Prifender_Des/";
+			
+			File tempPath = new File(TEMP_FILE_DIR);
+			
+			try {
+				
+				if (!tempPath.exists()) 
+				{
+					tempPath.mkdirs();
+				}
+			} 
+			catch (Exception e) {
+				
+				System.out.println("Unable to create temp folder : " + TEMP_FILE_DIR + "; " + e.getMessage());
+				
+			}
+		}
+
+		public static String getTempFileDir() {
+			return TEMP_FILE_DIR;
+		}
 	}
 	
+	/**
+	 * @param baseDir
+	 * @param dirName
+	 * @return
+	 */
+	public static String createDir(String baseDir, String dirName) {
+		if (StringUtils.isBlank(baseDir)) {
+			baseDir = Temp.getTempFileDir();
+		}
+		if (StringUtils.isNotBlank(dirName)) {
+			dirName = baseDir + "/" + dirName + "/";
+			if (!new File(dirName).exists()) {
+				new File(dirName).mkdirs();
+			}
+		}
+		return dirName;
+	}
 
+	/**
+	 * @param date
+	 * @return
+	 */
+	public static String getConvertedDate(Date date) 
+	{
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:MM:SS");
+		
+		return formatter.format(date);
+	}
+
+	/**
+	 * @param sampleSize
+	 * @param noOfContainers
+	 * @return
+	 */
+	public static int generateTaskSampleSize(int sampleSize , int noOfContainers) 
+	{
+		return (sampleSize/noOfContainers);	
+		
+	}
+
+	/**
+	 * @param str
+	 * @return
+	 */
+	public static String removeLastChar(String str) 
+	{
+		
+		return str.substring(0, str.length() - 1);
+		
+	}
+
+	/**
+	 * @return
+	 * @throws MalformedObjectNameException
+	 * @throws NullPointerException
+	 * @throws UnknownHostException
+	 */
+	public static String getUUID() throws MalformedObjectNameException, NullPointerException, UnknownHostException {
+		
+		UUID uuid = UUID.randomUUID();
+		
+		String randomUUIDString = uuid.toString();
+		
+		return  randomUUIDString;
+	}
+
+/**
+ * @param ds
+ * @param spec
+ * @param pattern
+ * @return
+ */
+public static String getDataSourceColumnNames(DataSource ds, DataExtractionSpec spec,String pattern){
+		
+		StringJoiner dataSourceColumnNames = new StringJoiner(","); 
+		
+		for (final DataExtractionAttribute attribute : spec.getAttributes()) 
+		{
+			List<DataExtractionAttribute> childAttributeList = attribute.getChildren();
+			
+			if (childAttributeList != null && childAttributeList.size() > 0) 
+			{
+				for (DataExtractionAttribute childAttribute : childAttributeList) 
+				{
+					dataSourceColumnNames.add(attribute.getName() + pattern + childAttribute.getName());
+				}
+			} 
+			else 
+			{
+				dataSourceColumnNames.add(attribute.getName());
+			}
+		}
+		return dataSourceColumnNames.toString();
+	}
 }

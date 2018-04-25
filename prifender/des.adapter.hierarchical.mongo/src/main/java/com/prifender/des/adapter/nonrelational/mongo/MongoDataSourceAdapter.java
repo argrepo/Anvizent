@@ -1,22 +1,25 @@
 package com.prifender.des.adapter.nonrelational.mongo;
 
+import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
+import static com.prifender.des.util.DatabaseUtil.createDir;
+import static com.prifender.des.util.DatabaseUtil.getUUID;
+import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
@@ -25,6 +28,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.MongoException;
 import com.mongodb.MongoSecurityException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MapReduceIterable;
@@ -33,15 +37,11 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Projections;
 import com.prifender.des.DataExtractionServiceException;
-import com.prifender.des.controller.DataExtractionThread;
-import com.prifender.des.controller.DataExtractionUtil;
 import com.prifender.des.controller.DataSourceAdapter;
-import com.prifender.des.model.ConnectionParam;
-import com.prifender.des.model.ConnectionParamDef;
-import com.prifender.des.model.ConnectionParamDef.TypeEnum;
 import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.DataExtractionJob;
 import com.prifender.des.model.DataExtractionSpec;
+import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
@@ -50,25 +50,32 @@ import com.prifender.des.model.Problem;
 import com.prifender.des.model.Type;
 import com.prifender.des.model.Type.DataTypeEnum;
 import com.prifender.des.model.Type.KindEnum;
-import com.prifender.encryption.service.client.EncryptionServiceClient;
-import com.prifender.messaging.api.MessagingConnectionFactory;
 
 @Component
 @SuppressWarnings("rawtypes")
-public final class MongoDataSourceAdapter implements DataSourceAdapter {
+public final class MongoDataSourceAdapter extends DataSourceAdapter {
     
     @Value( "${des.home}" )
     private String desHome;
-    @Autowired
-	EncryptionServiceClient encryptionServiceClient;
-	private static final String TYPE_ID = "Mongo";
+    
+    private final static String JOB_NAME = "local_project.prifender_mongodb_v1_0_1.Prifender_MONGODB_v1";
+    
+	private final static String DEPENDENCY_JAR = "prifender_mongodb_v1_0_1.jar";
 
-	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label("Mongo")
-			.addConnectionParamsItem(new ConnectionParamDef().id("Host").label("Host").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Port").label("Port").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("DatabaseName").label("DatabaseName").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("UserName").label("UserName").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Password").label("Password").type(TypeEnum.PASSWORD));
+	private static final int  MIN_THRESHOULD_ROWS = 100000;		
+	 
+	private static final int  MAX_THRESHOULD_ROWS = 200000;
+	
+	private static final String TYPE_ID = "Mongo";
+    public static final String TYPE_LABEL = "MongoDB";
+    
+    private static final DataSourceType TYPE = new DataSourceType()
+        .id( TYPE_ID ).label( TYPE_LABEL )
+        .addConnectionParamsItem( PARAM_HOST )
+        .addConnectionParamsItem( clone( PARAM_PORT ).required( false ).defaultValue( "27017" ) )
+        .addConnectionParamsItem( PARAM_USER )
+        .addConnectionParamsItem( PARAM_PASSWORD )
+        .addConnectionParamsItem( PARAM_DATABASE );
 
 	@Override
 	public DataSourceType getDataSourceType() {
@@ -93,8 +100,10 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 			mongoClient = getDataBaseConnection(ds);
 			if (mongoClient != null) {
 				try {
-					MongoCursor<String> dbsCursor = mongoClient.listDatabaseNames().iterator();
-					if (dbsCursor != null) {
+					final String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
+					MongoDatabase mongoDatabase = mongoClient.getDatabase(databaseName);
+					MongoCursor<Document> document= mongoDatabase.listCollections().iterator();
+					if (document != null) {
 						return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS)
 								.message("Mongo connection successfully established.");
 					}
@@ -124,10 +133,11 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 		try {
 			mongoClient = getDataBaseConnection(ds);
 			if (mongoClient != null) {
-				final String dataSourceName = getConnectionParam(ds, "DatabaseName");
+				final String dataSourceName = getConnectionParam(ds, PARAM_DATABASE_ID);
 				try {
-					MongoCursor<String> dbsCursor = mongoClient.listDatabaseNames().iterator();
-					if (dbsCursor != null) {
+					MongoDatabase mongoDatabase = mongoClient.getDatabase(dataSourceName);
+					MongoCursor<Document> document= mongoDatabase.listCollections().iterator();
+					if (document != null) {
 						metadata = metadataByConnection(mongoClient, dataSourceName);
 						if (metadata == null) {
 							throw new DataExtractionServiceException(new Problem().code("metadata error")
@@ -151,14 +161,13 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 		return metadata;
 	}
 
-	@Override
-	public int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
+	private int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
 		int countRows = 0;
 		MongoClient mongoClient = null;
 		try {
 			mongoClient = getDataBaseConnection(ds);
 			if (mongoClient != null) {
-				String databaseName = getConnectionParam(ds, "DatabaseName");
+				String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
 				String[] dataSourceDocumet = StringUtils.split(tableName, ".");
 				if (dataSourceDocumet.length == 2 ) {
 					databaseName = dataSourceDocumet[0];
@@ -175,39 +184,6 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 
 	}
 
-	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec,final MessagingConnectionFactory messaging )
-			throws DataExtractionServiceException {
-		StartResult startResult = null;
-		try {
-			final String adapterHome = DataExtractionUtil.createDir(this.desHome, TYPE_ID);
-			String tableName = spec.getCollection();
-			int dataSize = getCountRows(ds, tableName);
-			if (dataSize == 0) {
-				throw new DataExtractionServiceException(
-						new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
-			}
-			String[] schemaTableName = StringUtils.split(tableName, "." );
-			tableName = schemaTableName[schemaTableName.length-1];
-			DataExtractionJob job = new DataExtractionJob()
-					.id(spec.getDataSource() + "-" + tableName + "-" + UUID.randomUUID().toString())
-					.state(DataExtractionJob.StateEnum.WAITING);
-			ExecutorService executor = Executors.newSingleThreadExecutor();
-			try {
-				DataExtractionThread dataExtractionExecutor = new MongoDataExtractionExecutor(ds, spec, job, dataSize, adapterHome,messaging,encryptionServiceClient);
-				executor.execute(dataExtractionExecutor);
-				startResult = new StartResult(job, dataExtractionExecutor);
-			} catch (Exception err) {
-				throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-			} finally {
-				executor.shutdown();
-				executor.awaitTermination(1, TimeUnit.SECONDS);
-			}
-		} catch (InterruptedException err) {
-			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-		}
-		return startResult;
-	}
 
 	private MongoClient getDataBaseConnection(DataSource ds) throws DataExtractionServiceException {
 		if (ds == null) {
@@ -215,11 +191,11 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 					new Problem().code("datasource error").message("datasource is null"));
 		}
 
-		final String hostName = getConnectionParam(ds, "Host");
-		final String portNumber = getConnectionParam(ds, "Port");
-		final String databaseName = getConnectionParam(ds, "DatabaseName");
-		final String userName = getConnectionParam(ds, "UserName");
-		final String password = getConnectionParam(ds, "Password");
+		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
+		final String portNumber = getConnectionParam(ds, PARAM_PORT_ID);
+		final String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
+		final String userName = getConnectionParam(ds, PARAM_USER_ID);
+		final String password = getConnectionParam(ds, PARAM_PASSWORD_ID);
 
 		return getDataBaseConnection(hostName, Integer.parseInt(portNumber), databaseName, userName, password);
 	}
@@ -228,9 +204,9 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 	private MongoClient getDataBaseConnection(String hostName, int portNumber, String databaseName, String userName,
 			String password) {
 		MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
-		/*optionsBuilder.connectTimeout( 20000 );
-		optionsBuilder.readPreference( ReadPreference.primary() );*/
+		optionsBuilder.readPreference( ReadPreference.primary() );
 		MongoClientOptions clientOptions = optionsBuilder.build();
+		
 		ServerAddress serverAddress = new ServerAddress(hostName, portNumber);
 		MongoCredential mongoCredential = MongoCredential.createScramSha1Credential(userName, databaseName, password.toCharArray());
 		
@@ -247,13 +223,8 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 				if (schemaName.equals("all")) {
 					dataSourceList = getAllDatasourcesFromDatabase(mongoClient);
 				} else {
-					dataSourceList = getAllDatasourcesFromDatabase(mongoClient);
-					if (dataSourceList.contains(schemaName)) {
-						dataSourceList = new ArrayList<String>();
-						dataSourceList.add(schemaName);
-					} else {
-						throw new DataExtractionServiceException(new Problem().code("Unknown database").message("Database not found in "+TYPE_ID +"database."));
-					}
+					dataSourceList = new ArrayList<String>();
+					dataSourceList.add(schemaName);
 				}
 			} else {
 				throw new DataExtractionServiceException(new Problem().code("unknown database").message("database not found in connection params."));
@@ -440,29 +411,297 @@ public final class MongoDataSourceAdapter implements DataSourceAdapter {
 		return dataTypeEnum;
 	}
 
-	protected static final String getConnectionParam(final DataSource ds, final String param) {
-		if (ds == null) {
-			throw new IllegalArgumentException();
-		}
-
-		if (param == null) {
-			throw new IllegalArgumentException();
-		}
-
-		for (final ConnectionParam cp : ds.getConnectionParams()) {
-			if (cp.getId().equals(param)) {
-				return cp.getValue();
-			}
-		}
-
-		return null;
-	}
-
 	private int getCountRows(String collectionName, MongoClient mongoClient, String dataSourceName) {
 		MongoDatabase mongoDatabase = mongoClient.getDatabase(dataSourceName);
 		MongoCollection collection = mongoDatabase.getCollection(collectionName);
 		Long collectionCount = collection.count();
 		return collectionCount.intValue();
 	}
+	@Override
+	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec ,int containersCount) throws DataExtractionServiceException 
+	{
+		StartResult startResult = null;
+		try {
+			
+			String tableName = spec.getCollection();
+			
+			int rowCount = getCountRows(ds, tableName);
 
+			if (rowCount == 0) 
+			{
+				
+				throw new DataExtractionServiceException( new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
+				
+			}
+			
+			String[] schemaTableName = StringUtils.split(tableName, ".");
+			
+			tableName = schemaTableName[schemaTableName.length - 1];
+			
+			DataExtractionJob job = new DataExtractionJob()
+					
+					.id(spec.getDataSource() + "-" + tableName + "-" + UUID.randomUUID().toString())
+					
+					.state(DataExtractionJob.StateEnum.WAITING);
+ 
+			String adapterHome = createDir(this.desHome, TYPE_ID);
+				
+		    startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, rowCount, adapterHome , containersCount));
+			 
+		} 
+		catch (Exception err) 
+		{
+			
+			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
+		}
+		
+		return startResult;
+	}
+
+	/**
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param rowCount
+	 * @param adapterHome
+	 * @param containersCount
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec ,
+			
+			DataExtractionJob job,int rowCount ,String adapterHome , int containersCount) throws DataExtractionServiceException{
+		
+		int totalSampleSize = 0;
+		
+		int tasksCount = 0;
+		
+		List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
+		
+		try
+		{
+			 			
+			String tableName = spec.getCollection( );
+			
+			String[] databaseTable = StringUtils.split( tableName , "." );
+			
+			if ( databaseTable.length == 2 )
+			{
+				
+				tableName = databaseTable[1];
+				
+			}
+				
+			if ( spec.getScope( ).equals( DataExtractionSpec.ScopeEnum.SAMPLE ) )
+			{
+				
+				if ( spec.getSampleSize( ) == null )
+				{
+					
+					throw new DataExtractionServiceException( new Problem( ).code( "Meta data error" ).message( "sampleSize value not found" ) );
+					
+				}
+				
+				totalSampleSize = rowCount < spec.getSampleSize( ) ? rowCount : spec.getSampleSize( );
+				
+			}else
+			{
+				totalSampleSize = rowCount;
+			}
+			  synchronized (job) {
+	        	   
+	        	   job.setOutputMessagingQueue("DES-" + job.getId());
+	        	   
+	        	   job.objectsExtracted(0);
+			  }
+			
+			if (totalSampleSize <= MIN_THRESHOULD_ROWS ) {
+				
+				int offset = 1;
+				
+				dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  totalSampleSize ));
+				
+				tasksCount++;
+				
+			} else {
+				
+				int taskSampleSize =  generateTaskSampleSize( totalSampleSize , containersCount );
+				
+				if ( taskSampleSize <= MIN_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MIN_THRESHOULD_ROWS ;						 
+				}
+				if ( taskSampleSize > MAX_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MAX_THRESHOULD_ROWS ;						 
+				}
+				
+				int noOfTasks = totalSampleSize / taskSampleSize ;			
+				
+				int remainingSampleSize = totalSampleSize % taskSampleSize;		
+				
+				for (int i = 0 ; i < noOfTasks ; i++) 
+				{
+					
+					int offset = taskSampleSize * i + 1;	
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  taskSampleSize ));
+					
+					tasksCount++;
+				}
+				
+				if (remainingSampleSize > 0) 
+				{								 
+					int offset = noOfTasks * taskSampleSize + 1;
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  remainingSampleSize ));
+					
+					tasksCount++;
+				}
+			}
+			 
+           synchronized (job) {
+        	   
+        	   job.setTasksCount(tasksCount);
+        	   
+        	   job.setObjectCount(totalSampleSize);
+           }
+
+		} catch ( Exception e )
+		{
+			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
+		}
+		return dataExtractionJobTasks;
+	}
+
+	/**
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param adapterHome
+	 * @param offset
+	 * @param limit
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec ,
+			
+			DataExtractionJob job,String adapterHome,int offset,int limit) throws DataExtractionServiceException
+	{
+		
+		DataExtractionTask dataExtractionTask = new DataExtractionTask();
+		 
+		try
+		{
+			 
+		final String dataSourceHost = getConnectionParam( ds , PARAM_HOST_ID );
+		
+		final String dataSourcePort = getConnectionParam( ds , PARAM_PORT_ID );
+		
+		final String dataSourceUser = getConnectionParam( ds , PARAM_USER_ID );
+		
+		final String dataSourcePassword = getConnectionParam( ds , PARAM_PASSWORD_ID );
+		
+		String databaseName = getConnectionParam( ds , PARAM_DATABASE_ID );
+		
+		String tableName = spec.getCollection( );
+		
+		String[] databaseTable = StringUtils.split( tableName , "." );
+		
+		if ( databaseTable.length == 2 )
+		{
+			
+			databaseName = databaseTable[0];
+			
+			tableName = databaseTable[1];
+			
+		}
+ 
+		Map< String , String > contextParams = getContextParams( adapterHome , JOB_NAME , dataSourceUser ,
+				
+				dataSourcePassword , tableName ,  getDataSourceColumnNames(ds, spec,".") , dataSourceHost , dataSourcePort ,
+				
+				databaseName , job.getOutputMessagingQueue() , String.valueOf(offset) , String.valueOf( limit )  ,
+				
+				String.valueOf( DataExtractionSpec.ScopeEnum.SAMPLE ) , String.valueOf( limit ) );
+		
+		dataExtractionTask.taskId("DES-Task-"+getUUID( ))
+						
+						                    .jobId( job.getId( ) )
+				                           
+				                            .typeId( TYPE_ID +"__"+JOB_NAME + "__" +DEPENDENCY_JAR )
+				                           
+				                            .contextParameters( contextParams )
+				                           
+				                            .numberOfFailedAttempts( 0 );
+		}
+		catch(Exception e)
+		{
+			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
+		}
+		return dataExtractionTask;
+	}
+
+	/**
+	 * @param jobFilesPath
+	 * @param jobName
+	 * @param dataSourceUser
+	 * @param dataSourcePassword
+	 * @param dataSourceTableName
+	 * @param dataSourceColumnNames
+	 * @param dataSourceHost
+	 * @param dataSourcePort
+	 * @param dataSourceName
+	 * @param jobId
+	 * @param offset
+	 * @param limit
+	 * @param dataSourceScope
+	 * @param dataSourceSampleSize
+	 * @return
+	 * @throws IOException
+	 */
+	public Map< String , String > getContextParams(String jobFilesPath, String jobName, String dataSourceUser,
+			
+			String dataSourcePassword, String dataSourceTableName, String dataSourceColumnNames, String dataSourceHost,
+			
+			String dataSourcePort, String dataSourceName, String jobId, String offset, String limit,
+			
+			String dataSourceScope, String dataSourceSampleSize) throws IOException
+	{
+
+		Map< String , String > ilParamsVals = new LinkedHashMap<>( );
+		
+		ilParamsVals.put( "JOB_STARTDATETIME" ,  getConvertedDate( new Date( ) ) );
+		
+		ilParamsVals.put("FILE_PATH", jobFilesPath);
+		
+		ilParamsVals.put("JOB_NAME", jobName);
+		
+		ilParamsVals.put("DATASOURCE_USER", dataSourceUser);
+		
+		ilParamsVals.put("DATASOURCE_PASS", dataSourcePassword);
+		
+		ilParamsVals.put("DATASOURCE_TABLE_NAME", dataSourceTableName);
+		
+		ilParamsVals.put("DATASOURCE_COLUMN_NAMES", dataSourceColumnNames);
+		
+		ilParamsVals.put("DATASOURCE_HOST", dataSourceHost);
+		
+		ilParamsVals.put("DATASOURCE_PORT", dataSourcePort);
+		
+		ilParamsVals.put("DATASOURCE_NAME", dataSourceName);
+		
+		ilParamsVals.put("JOB_ID", jobId);
+		
+		ilParamsVals.put("OFFSET", offset);
+		
+		ilParamsVals.put("LIMIT", limit);
+		
+		ilParamsVals.put("SCOPE", dataSourceScope);
+		
+		ilParamsVals.put("SAMPLESIZE", dataSourceSampleSize);
+		
+		return ilParamsVals;
+
+	}
 }

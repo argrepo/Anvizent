@@ -1,8 +1,3 @@
-des:
-  home: ${DES_HOME:../des.jobs/target/jobs}
-server:
-  contextPath: /des
-  port: ${DES_PORT:8080}
 spring:
   application:
     name: Prifender Data Extraction Service
@@ -15,3 +10,13 @@ info:
     copyright: Copyright (c) 2018 Prifender
   java:
     version: ${java.runtime.version}
+des:
+  home: ../des.jobs/target/jobs
+  metadata: ${des.home}/desDataSources.json
+  containers : 5
+scheduling:
+  pendingTasksQueue: DES-Tasks-Development 
+  taskStatusQueue: DES-TaskStatus-Development
+server:
+  contextPath: /des
+  port: ${DES_PORT:8080}

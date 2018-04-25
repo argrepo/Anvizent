@@ -2,91 +2,142 @@ package com.prifender.des.controller;
 
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.Queue;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.prifender.des.DataExtractionServiceException;
-import com.prifender.des.model.DataExtractionChunk;
+import com.prifender.des.model.DataExtractionTaskResults;
 import com.prifender.des.model.DataExtractionJob;
-import com.prifender.des.model.Problem;
 import com.prifender.messaging.api.MessageConsumer;
 import com.prifender.messaging.api.MessagingConnection;
 import com.prifender.messaging.api.MessagingConnectionFactory;
 import com.prifender.messaging.api.MessagingQueue;
 
 @Component
-public class WorkQueueMonitoring {
+public class WorkQueueMonitoring implements Runnable
+{
+
+	@Value( "${scheduling.taskStatusQueue}" )
+    private String taskStatusQueueName;
+	
+	private MessagingQueue taskStatusQueue;
+	
 	@Autowired
-	private MessagingConnectionFactory  messaging;
-    Queue<DataExtractionChunk> dataExtractionChunkQueue = new LinkedList<DataExtractionChunk>();
-    @Scheduled(fixedRate = 2000)
-    public void create() throws DataExtractionServiceException {
-    	try( final MessagingConnection messagingServiceConnection = this.messaging.connect() ){
-         {
-        	 final String queueName = getResultsScheduleQueueName();
-        	 final MessagingQueue queue = messagingServiceConnection.queue( queueName );
-             
-             queue.consume
-             (
-                 new MessageConsumer()
-                 {
-					@Override
-                     public void consume( final byte[] message )
-                     {
-                          final String msg;
-                          try
-                          {
-                              msg = new String( message, "UTF-8" );
-                              if(msg != null && msg != ""){
-							  doWork(msg);
-                              }else{
-                            	 System.out.println("No messages found in "+queueName +"queue");
-                              }
-							} catch (InterruptedException e) {
-								e.printStackTrace();
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-                     }
-                 } 
-             );
-          }
-         }catch( final IOException e )
-         {
-        	 throw new DataExtractionServiceException(new Problem().code("messaging connection error").message(e.getCause().toString()));
-         }
-    	}
-    private void doWork(String msg) throws Exception{
-		ObjectMapper mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		DataExtractionChunk dataExtractionChunk = mapper.readValue(msg, new TypeReference<DataExtractionChunk>(){});
-		dataExtractionChunkQueue.add(dataExtractionChunk);
-}
-    Queue<DataExtractionChunk> getDataExtractionChunkQueue(DataExtractionJob finaldataExtractionJob){
-    	Queue<DataExtractionChunk> dataExtractionJobQueue = new LinkedList<DataExtractionChunk>();
-    	if(dataExtractionChunkQueue != null && dataExtractionChunkQueue.size() > 0){
-    		for(DataExtractionChunk dataExtractionChunk : dataExtractionChunkQueue){
-    			if(dataExtractionChunk.getJobId().equals(finaldataExtractionJob.getId())){
-    				dataExtractionJobQueue.add(dataExtractionChunk);
-    			}
-          }
-    	}
-	   return dataExtractionJobQueue;
-   }
-    private static String getResultsScheduleQueueName() {
-		   
-	    final String resultsScheduleQueueName = System.getenv( "SCHEDULE_RESULTS_QUEUE_NAME" );
-	 
-		if (resultsScheduleQueueName != null) {
-			try {
-				return resultsScheduleQueueName;
-			} catch (final NumberFormatException e) {
+	private MessagingConnectionFactory messaging;
+	
+	List< DataExtractionTaskResults > dataExtractionTaskResultsList = new LinkedList< DataExtractionTaskResults >( );
+
+	@Override
+	public void run()
+	{
+
+		try( final MessagingConnection mc = this.messaging.connect() )
+		{
+		    this.taskStatusQueue = mc.queue(this.taskStatusQueueName);
+
+			this.taskStatusQueue.consume( new MessageConsumer( )
+			{
+
+				@Override
+				public void consume(final byte[] message)
+				{
+
+					final String msg;
+
+					try
+					{
+
+						msg = new String( message , "UTF-8" );
+
+						if ( msg != null && msg != "" )
+						{
+
+							getTaskStatusQueueResults( msg );
+
+						} else
+						{
+
+							System.out.println( "No messages found in " + taskStatusQueueName + "queue" );
+
+						}
+
+					} catch ( InterruptedException e )
+					{
+
+						e.printStackTrace( );
+
+					} catch ( Exception e )
+					{
+
+						e.printStackTrace( );
+					}
+				}
+			} );
+			
+		}
+		catch ( final IOException e )
+		{
+			 e.printStackTrace( );
+			 
+		} finally
+		{
+			 
+			    this.taskStatusQueue = null;
+
+		}
+	}
+
+	private void getTaskStatusQueueResults(String msg) throws Exception
+	{
+
+		ObjectMapper mapper = new ObjectMapper( );
+
+		DataExtractionTaskResults dataExtractionTaskResults = mapper.readValue( msg , new TypeReference< DataExtractionTaskResults >( ) { } );
+		
+		int index = getTaskIndexId(dataExtractionTaskResults);
+		
+		if (index == -1) 
+		{
+			dataExtractionTaskResultsList.add( dataExtractionTaskResults );
+		} 
+		else 
+		{
+			dataExtractionTaskResultsList.set(index, dataExtractionTaskResults);
+		}
+		
+	}
+	
+	private int getTaskIndexId(DataExtractionTaskResults dataExtractionTaskResults) {
+		
+		for (int t = 0; t < dataExtractionTaskResultsList.size(); t++) 
+		{
+			if (dataExtractionTaskResultsList.get(t).getTaskId().equals(dataExtractionTaskResults.getTaskId())) 
+			{
+				return t;
 			}
 		}
-		return "DES-Schedule_Queue_Results";
+		return -1;
 	}
+	
+
+	protected List< DataExtractionTaskResults > getDataExtractionTaskResults(DataExtractionJob  dataExtractionJob)
+	{
+		List< DataExtractionTaskResults > dataExtractionTaskList = new LinkedList< DataExtractionTaskResults >( );
+
+		if ( dataExtractionTaskResultsList != null && dataExtractionTaskResultsList.size( ) > 0 )
+		{
+			for ( DataExtractionTaskResults dataExtractionTaskResults : dataExtractionTaskResultsList )
+			{
+				if ( dataExtractionTaskResults.getJobId( ).equals( dataExtractionJob.getId( ) ) )
+				{
+					dataExtractionTaskList.add( dataExtractionTaskResults );
+					 
+				}
+			}
+		}
+		return dataExtractionTaskList;
+	}
+
 }
-    	

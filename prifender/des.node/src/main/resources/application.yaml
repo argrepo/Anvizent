@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: Prifender Data Extraction Service Node
+  jackson:
+    default-property-inclusion: NON_NULL
+info:
+  app:
+    name: Prifender
+    module: ${spring.application.name}
+    copyright: Copyright (c) 2018 Prifender
+  java:
+    version: ${java.runtime.version}
+server:
+  port: 8090
+scheduling:
+  pendingTasksQueue: DES-Tasks-Development 
+  taskStatusQueue: DES-TaskStatus-Development
+  retries: 5   # How many times a task is retried in the face of errors before marking the task as failed
+talend:
+  jobs: ../des.jobs/target/jobs

@@ -1,29 +1,31 @@
 package com.prifender.des.adapter.relational.sap;
 
+
+import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
+import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
+import static com.prifender.des.util.DatabaseUtil.createDir;
+import static com.prifender.des.util.DatabaseUtil.getUUID;
+
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import com.prifender.des.DataExtractionServiceException;
-import com.prifender.des.controller.DataExtractionThread;
-import com.prifender.des.controller.DataExtractionUtil;
 import com.prifender.des.controller.DataSourceAdapter;
-import com.prifender.des.model.ConnectionParam;
 import com.prifender.des.model.ConnectionParamDef;
 import com.prifender.des.model.ConnectionParamDef.TypeEnum;
 import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.DataExtractionJob;
 import com.prifender.des.model.DataExtractionSpec;
+import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
@@ -31,9 +33,7 @@ import com.prifender.des.model.NamedType;
 import com.prifender.des.model.Problem;
 import com.prifender.des.model.Type;
 import com.prifender.des.model.Type.DataTypeEnum;
-import com.prifender.des.model.Type.KindEnum;
-import com.prifender.encryption.service.client.EncryptionServiceClient;
-import com.prifender.messaging.api.MessagingConnectionFactory;
+import com.prifender.des.model.Type.KindEnum; 
 import com.sap.conn.jco.JCoContext;
 import com.sap.conn.jco.JCoDestination;
 import com.sap.conn.jco.JCoDestinationManager;
@@ -46,31 +46,102 @@ import com.sap.conn.jco.JCoTable;
 import com.sap.conn.jco.ext.DestinationDataProvider;
 
 @Component
-public final class SAPDataSourceAdapter implements DataSourceAdapter {
+public final class SAPDataSourceAdapter extends DataSourceAdapter {
     
     @Value( "${des.home}" )
     private String desHome;
-    @Autowired
-	EncryptionServiceClient encryptionServiceClient;
+    
+    private final static String JOB_NAME = "local_project.prifender_sap_v1_0_1.Prifender_SAP_v1";
+    
+	private final static String DEPENDENCY_JAR = "prifender_sap_v1_0_1.jar";
+
+	private static final int  MIN_THRESHOULD_ROWS = 100000;		
+	 
+	private static final int  MAX_THRESHOULD_ROWS = 200000;		
+	
     
     private static final String TYPE_ID = "SAP";
-    static String ABAP_AS = "ABAP_AS_WITHOUT_POOL";
-     
+    public static final String TYPE_LABEL = "SAP";
+    
+    // Pool
+
+    public static final String PARAM_POOL_ID = "Pool";
+    public static final String PARAM_POOL_LABEL = "Pool";
+    public static final String PARAM_POOL_DESCRIPTION = "The name of the pool";
+    
+    public static final ConnectionParamDef PARAM_POOL
+        = new ConnectionParamDef().id( PARAM_POOL_ID ).label( PARAM_POOL_LABEL ).description( PARAM_POOL_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    // MaxConnections
+
+    public static final String PARAM_MAX_CONNECTIONS_ID = "MaxConnections";
+    public static final String PARAM_MAX_CONNECTIONS_LABEL = "Max Connections";
+    public static final String PARAM_MAX_CONNECTIONS_DESCRIPTION = "The maximum number of connections";
+    
+    public static final ConnectionParamDef PARAM_MAX_CONNECTIONS
+        = new ConnectionParamDef().id( PARAM_MAX_CONNECTIONS_ID ).label( PARAM_MAX_CONNECTIONS_LABEL ).description( PARAM_MAX_CONNECTIONS_DESCRIPTION ).type( TypeEnum.INTEGER );
+    
+    // Client
+
+    public static final String PARAM_CLIENT_ID = "Client";
+    public static final String PARAM_CLIENT_LABEL = "Client";
+    public static final String PARAM_CLIENT_DESCRIPTION = "The name of the client";
+    
+    public static final ConnectionParamDef PARAM_CLIENT
+        = new ConnectionParamDef().id( PARAM_CLIENT_ID ).label( PARAM_CLIENT_LABEL ).description( PARAM_CLIENT_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    // SystemNumber
+
+    public static final String PARAM_SYSTEM_NUMBER_ID = "SystemNumber";
+    public static final String PARAM_SYSTEM_NUMBER_LABEL = "System Number";
+    public static final String PARAM_SYSTEM_NUMBER_DESCRIPTION = "The system number";
+    
+    public static final ConnectionParamDef PARAM_SYSTEM_NUMBER
+        = new ConnectionParamDef().id( PARAM_SYSTEM_NUMBER_ID ).label( PARAM_SYSTEM_NUMBER_LABEL ).description( PARAM_SYSTEM_NUMBER_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    // Language
+
+    public static final String PARAM_LANGUAGE_ID = "Language";
+    public static final String PARAM_LANGUAGE_LABEL = "Language";
+    public static final String PARAM_LANGUAGE_DESCRIPTION = "The language";
+    
+    public static final ConnectionParamDef PARAM_LANGUAGE
+        = new ConnectionParamDef().id( PARAM_LANGUAGE_ID ).label( PARAM_LANGUAGE_LABEL ).description( PARAM_LANGUAGE_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    // Repository
+
+    public static final String PARAM_REPOSITORY_ID = "Repository";
+    public static final String PARAM_REPOSITORY_LABEL = "Repository";
+    public static final String PARAM_REPOSITORY_DESCRIPTION = "The repository";
+    
+    public static final ConnectionParamDef PARAM_REPOSITORY
+        = new ConnectionParamDef().id( PARAM_REPOSITORY_ID ).label( PARAM_REPOSITORY_LABEL ).description( PARAM_REPOSITORY_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    // Function
+
+    public static final String PARAM_FUNCTION_ID = "Function";
+    public static final String PARAM_FUNCTION_LABEL = "Function";
+    public static final String PARAM_FUNCTION_DESCRIPTION = "The function";
+    
+    public static final ConnectionParamDef PARAM_FUNCTION
+        = new ConnectionParamDef().id( PARAM_FUNCTION_ID ).label( PARAM_FUNCTION_LABEL ).description( PARAM_FUNCTION_DESCRIPTION ).type( TypeEnum.STRING );
+    
     private static final DataSourceType TYPE = new DataSourceType()
-	        .id( TYPE_ID )
-	        .label( "SAP" )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "PoolName" ).label( "PoolName" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "MaxConnections" ).label( "MaxConnections" ).type( TypeEnum.STRING) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Client" ).label( "Client" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "UserName" ).label( "UserName" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Password" ).label( "Password" ).type( TypeEnum.PASSWORD ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Host" ).label( "Host" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Port" ).label( "Port" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "SystemNumber" ).label( "SystemNumber" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Language" ).label( "Language" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "Repository" ).label( "Repository" ).type( TypeEnum.STRING ) )
-	        .addConnectionParamsItem( new ConnectionParamDef().id( "FunctionName" ).label( "FunctionName" ).type( TypeEnum.STRING ));
+        .id( TYPE_ID ).label( TYPE_LABEL )
+        .addConnectionParamsItem( PARAM_HOST )
+        .addConnectionParamsItem( PARAM_PORT )
+        .addConnectionParamsItem( PARAM_USER )
+        .addConnectionParamsItem( PARAM_PASSWORD )
+        .addConnectionParamsItem( PARAM_POOL )
+        .addConnectionParamsItem( PARAM_MAX_CONNECTIONS )
+        .addConnectionParamsItem( PARAM_CLIENT )
+        .addConnectionParamsItem( PARAM_SYSTEM_NUMBER )
+        .addConnectionParamsItem( PARAM_LANGUAGE )
+        .addConnectionParamsItem( PARAM_REPOSITORY )
+        .addConnectionParamsItem( PARAM_FUNCTION );
  	
+    private static String ABAP_AS = "ABAP_AS_WITHOUT_POOL";
+    
     @Override
 		public DataSourceType getDataSourceType() {
 			return TYPE;
@@ -84,7 +155,7 @@ public final class SAPDataSourceAdapter implements DataSourceAdapter {
 		}
 		try {
 			  destination = getDatabaseConnection(ds);
-			  final String functionName = getConnectionParam(ds, "FunctionName");
+			  final String functionName = getConnectionParam(ds, PARAM_FUNCTION_ID);
 			if (destination.getRepository().getFunction(functionName) != null) {
 				return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("SAP connection successfully established.");
 			}
@@ -124,46 +195,14 @@ public final class SAPDataSourceAdapter implements DataSourceAdapter {
 		return metadata;
 	}
 		
-	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec,final MessagingConnectionFactory messaging)
-			throws DataExtractionServiceException {
-		StartResult startResult = null;
-		try {
-			final String tableName = spec.getCollection();
-			int dataSize =  getCountRows(ds, tableName) ;
-			if (dataSize != 0) {
-				DataExtractionJob job = new DataExtractionJob()
-						.id(spec.getDataSource() + "-" + tableName + "-" + UUID.randomUUID().toString())
-						.state(DataExtractionJob.StateEnum.WAITING);
-				ExecutorService executor = Executors.newSingleThreadExecutor();
-				try {
-					final String adapterHome = DataExtractionUtil.createDir(this.desHome, TYPE_ID);
-					DataExtractionThread dataExtractionExecutor = new SAPDataExtractionExecutor(ds, spec, job,
-							dataSize, adapterHome,messaging,encryptionServiceClient);
-					executor.execute(dataExtractionExecutor);
-					startResult = new StartResult(job, dataExtractionExecutor);
-				} catch (Exception err) {
-					throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-				}
-				executor.shutdown();
-				executor.awaitTermination(1, TimeUnit.SECONDS);
-			} else {
-				throw new DataExtractionServiceException(new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
-			}
-		} catch (InterruptedException err) {
-			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-		}
-		return startResult;
-	}
-
 	private JCoDestination getDatabaseConnection(DataSource ds) {
 
-		final String hostName = getConnectionParam(ds, "Host");
-		final String systemNumber = getConnectionParam(ds, "SystemNumber");
-		final String userName = getConnectionParam(ds, "UserName");
-		final String password = getConnectionParam(ds, "Password");
-		final String client = getConnectionParam(ds, "Client");
-		final String language = getConnectionParam(ds, "Language");
+		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
+		final String systemNumber = getConnectionParam(ds, PARAM_SYSTEM_NUMBER_ID);
+		final String userName = getConnectionParam(ds, PARAM_USER_ID);
+		final String password = getConnectionParam(ds, PARAM_PASSWORD_ID);
+		final String client = getConnectionParam(ds, PARAM_CLIENT_ID);
+		final String language = getConnectionParam(ds, PARAM_LANGUAGE_ID);
 
 		JCoDestination destination = null;
 		Properties connectProperties = new Properties();
@@ -189,7 +228,7 @@ public final class SAPDataSourceAdapter implements DataSourceAdapter {
 
 	private Metadata metadataByConnection(DataSource ds,JCoDestination destination) throws DataExtractionServiceException {
 		
-		final String functionName = getConnectionParam(ds, "FunctionName");
+		final String functionName = getConnectionParam(ds, PARAM_FUNCTION_ID);
 		
 		Metadata metadata = new Metadata();
 		List<String> functionList = null;
@@ -297,36 +336,15 @@ public final class SAPDataSourceAdapter implements DataSourceAdapter {
 		}
 		return dataTypeEnum;
 	}
-	 
-	 
-	protected static final String getConnectionParam(final DataSource ds, final String param) {
-		if (ds == null) {
-			throw new IllegalArgumentException();
-		}
 
-		if (param == null) {
-			throw new IllegalArgumentException();
-		}
-
-		for (final ConnectionParam cp : ds.getConnectionParams()) {
-			if (cp.getId().equals(param)) {
-				return cp.getValue();
-			}
-		}
-
-		return null;
-	}
-
-	@Override
-	public int getCountRows(DataSource ds, String tableName)
-			throws DataExtractionServiceException {
+	public int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
 		int countRows = 0;
 		JCoDestination destination = null;
 		try {
 			destination = getDatabaseConnection(ds);
 			if (destination != null) {
 
-				final String functionName = getConnectionParam(ds, "FunctionName");
+				final String functionName = getConnectionParam(ds, PARAM_FUNCTION_ID);
 				JCoFunction jcoFunction = destination.getRepository().getFunction(functionName);
 			    if (jcoFunction != null) {
 					jcoFunction.execute(destination);
@@ -371,5 +389,266 @@ public final class SAPDataSourceAdapter implements DataSourceAdapter {
 	                throw new RuntimeException("Unable to create the destination file " + cfg.getName(), e);
 	            }
 	    }
+	 @Override
+		public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec ,int containersCount) throws DataExtractionServiceException 
+		{
+			StartResult startResult = null;
+			try {
+				
+				final String tableName = spec.getCollection();
+				
+				int rowCount =  getCountRows(ds, tableName) ;
+				
+				if (rowCount != 0) 
+				{
+					DataExtractionJob job = new DataExtractionJob()
+							
+							.id(spec.getDataSource() + "-" + tableName + "-" + getUUID( ))
+							
+							.state(DataExtractionJob.StateEnum.WAITING);
+							 
+					 
+						String adapterHome =  createDir(this.desHome, TYPE_ID);
+						
+						startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, rowCount, adapterHome , containersCount));
+				}
+		    	}
+				catch (Exception exe) 
+				{
+					throw new DataExtractionServiceException(new Problem().code("job error").message(exe.getMessage()));
+				}
+			
+			return startResult;
+		}
+		
+		/**
+		 * @param ds
+		 * @param spec
+		 * @param job
+		 * @param rowCount
+		 * @param adapterHome
+		 * @param containersCount
+		 * @return
+		 * @throws DataExtractionServiceException
+		 */
+		private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec ,
+				
+				DataExtractionJob job,int rowCount ,String adapterHome , int containersCount) throws DataExtractionServiceException
+		{
+			
+			int totalSampleSize = 0;
+			
+			int tasksCount = 0;
+			
+			List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
+			
+			try
+			{
+				if ( spec.getScope( ).equals( DataExtractionSpec.ScopeEnum.SAMPLE ) )
+				{
+					if ( spec.getSampleSize( ) == null )
+					{
+						throw new DataExtractionServiceException( new Problem( ).code( "Meta data error" ).message( "sampleSize value not found" ) );
+					}
+					
+					totalSampleSize = rowCount < spec.getSampleSize( ) ? rowCount : spec.getSampleSize( );
+				}else
+				{
+					totalSampleSize = rowCount;
+				}
+				
+				synchronized (job) {
+		        	   
+		        	   job.setOutputMessagingQueue("DES-" + job.getId());
+						
+		        	   job.objectsExtracted(0);
+				}
+				if (totalSampleSize <= MIN_THRESHOULD_ROWS ) {
+					
+					int offset = 1;
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  totalSampleSize ));
+					
+					tasksCount++;
+					
+				} else {
+					
+					int taskSampleSize =  generateTaskSampleSize( totalSampleSize , containersCount );
+					
+					if ( taskSampleSize <= MIN_THRESHOULD_ROWS ) 
+					{  						 
+						taskSampleSize = MIN_THRESHOULD_ROWS ;						 
+					}
+					if ( taskSampleSize > MAX_THRESHOULD_ROWS ) 
+					{  						 
+						taskSampleSize = MAX_THRESHOULD_ROWS ;						 
+					}
+					
+					int noOfTasks = totalSampleSize / taskSampleSize ;			
+					
+					int remainingSampleSize = totalSampleSize % taskSampleSize;		
+					
+					for (int i = 0 ; i < noOfTasks ; i++) 
+					{
+						
+						int offset = taskSampleSize * i + 1;	
+						
+						dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  taskSampleSize ));
+						
+						tasksCount++;
+					}
+					
+					if (remainingSampleSize > 0) 
+					{								 
+						int offset = noOfTasks * taskSampleSize + 1;
+						
+						dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  remainingSampleSize ));
+						
+						tasksCount++;
+					}
+				}
+				 
+	           synchronized (job) 
+	           {
+	        	   job.setTasksCount(tasksCount);
+	        	   
+	        	   job.setObjectCount(totalSampleSize);
+	           }
 
+			} catch ( Exception e )
+			{
+				throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
+			}
+			return dataExtractionJobTasks;
+		}
+
+		/**
+		 * @param ds
+		 * @param spec
+		 * @param job
+		 * @param adapterHome
+		 * @param offset
+		 * @param limit
+		 * @return
+		 * @throws DataExtractionServiceException
+		 */
+		private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec ,
+				
+				DataExtractionJob job,String adapterHome,int offset,int limit) throws DataExtractionServiceException
+		{
+			DataExtractionTask dataExtractionTask = new DataExtractionTask();
+			 
+			try
+			{
+				
+			final String dataSourceHost = getConnectionParam(ds, PARAM_HOST_ID);
+			
+			final String dataSourcePort = getConnectionParam(ds, PARAM_PORT_ID);
+			
+			final String dataSourceUser =  getConnectionParam(ds, PARAM_USER_ID);
+			
+			final String dataSourcePassword =  getConnectionParam(ds, PARAM_PASSWORD_ID);
+			
+			final String client = getConnectionParam(ds, PARAM_CLIENT_ID);
+			
+			final String language = getConnectionParam(ds, PARAM_LANGUAGE_ID);
+			
+			final String systsemNumber = getConnectionParam(ds, PARAM_SYSTEM_NUMBER_ID);
+	 
+			Map< String , String > contextParams = getContextParams(adapterHome, JOB_NAME, dataSourceUser,
+					
+					dataSourcePassword, spec.getCollection(), getDataSourceColumnNames(ds, spec,"."), dataSourceHost, dataSourcePort,
+					
+					dataSourceUser, job.getId(), String.valueOf(offset), String.valueOf(limit), String.valueOf(DataExtractionSpec.ScopeEnum.SAMPLE),
+					
+					String.valueOf(limit),client,language,systsemNumber);
+			
+			dataExtractionTask.taskId( "DES-Task-"+getUUID( ))
+							
+							                    .jobId( job.getId( ) )
+					                           
+					                            .typeId( TYPE_ID +"__"+JOB_NAME + "__" +DEPENDENCY_JAR )
+					                           
+					                            .contextParameters( contextParams )
+					                           
+					                            .numberOfFailedAttempts( 0 );
+			}
+			catch(Exception e)
+			{
+				throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
+			}
+			return dataExtractionTask;
+		}
+	 
+		/**
+		 * @param jobFilesPath
+		 * @param jobName
+		 * @param dataSourceUser
+		 * @param dataSourcePassword
+		 * @param dataSourceTableName
+		 * @param dataSourceColumnNames
+		 * @param dataSourceHost
+		 * @param dataSourcePort
+		 * @param dataSourceName
+		 * @param jobId
+		 * @param offset
+		 * @param limit
+		 * @param dataSourceScope
+		 * @param dataSourceSampleSize
+		 * @param client
+		 * @param language
+		 * @param systsemNumber
+		 * @return
+		 * @throws IOException
+		 */
+		public Map<String, String> getContextParams ( String jobFilesPath,String jobName,String dataSourceUser, String dataSourcePassword,
+				
+				String dataSourceTableName,String dataSourceColumnNames,String dataSourceHost,String dataSourcePort, String dataSourceName ,
+				
+				String jobId ,String offset,String limit,String dataSourceScope, String dataSourceSampleSize,String client,String language,String systsemNumber
+				
+				) throws IOException 
+		{
+			Map<String, String> ilParamsVals = new LinkedHashMap<>();
+	 
+			ilParamsVals.put("JOB_STARTDATETIME",  getConvertedDate(new Date()));  
+			
+			ilParamsVals.put("FILE_PATH", jobFilesPath);
+			
+			ilParamsVals.put("JOB_NAME", jobName);
+			
+			ilParamsVals.put("DATASOURCE_USER", dataSourceUser);
+			
+			ilParamsVals.put("DATASOURCE_PASS", dataSourcePassword);
+			
+			ilParamsVals.put("DATASOURCE_TABLE_NAME", dataSourceTableName);
+			
+			ilParamsVals.put("DATASOURCE_COLUMN_NAMES", dataSourceColumnNames);
+			
+			ilParamsVals.put("DATASOURCE_HOST", dataSourceHost);
+			
+			ilParamsVals.put("DATASOURCE_PORT", dataSourcePort);
+			
+			ilParamsVals.put("DATASOURCE_NAME", dataSourceName);
+			
+			ilParamsVals.put("JOB_ID", jobId);
+			
+			ilParamsVals.put("OFFSET", offset);
+			
+			ilParamsVals.put("LIMIT", limit);
+			
+			ilParamsVals.put("SCOPE", dataSourceScope);
+			
+			ilParamsVals.put("SAMPLESIZE", dataSourceSampleSize);
+			
+			ilParamsVals.put("CLIENT", client);
+			
+			ilParamsVals.put("LANGUAGE", language);
+			
+			ilParamsVals.put("SYSTEM_NUMBER", systsemNumber);
+	 
+
+			return ilParamsVals;
+
+		}
 }

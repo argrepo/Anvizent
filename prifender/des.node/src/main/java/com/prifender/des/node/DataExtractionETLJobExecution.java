@@ -1,92 +1,42 @@
 package com.prifender.des.node;
 
 import java.io.File;
-
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.commons.lang3.StringUtils;
 
 public class DataExtractionETLJobExecution {
 
-	private static final String PATH_SEPERATOR = System.getProperty("path.separator");
+	private static final String PATH_SEPARATOR = System.getProperty("path.separator");
+	private static final String File_SEPARATOR = System.getProperty("file.separator");
+	
 	private final String commonEtlJobsFolder;
 	private final String etlJobsFolder;
 	DataExtractionStreamGobbler errorStreamGobbler = null;
 	DataExtractionStreamGobbler inputStreamGobbler = null;
 	
-	public DataExtractionETLJobExecution(String typeId) {
-		this.commonEtlJobsFolder = DataExtractionUtil.Config.ETLJOBS + typeId + "/COMMON_ETLJOBS";
-		this.etlJobsFolder = DataExtractionUtil.Config.ETLJOBS + typeId;
+	public DataExtractionETLJobExecution( final String talendJobsPath, final String typeId ) {
+		this.commonEtlJobsFolder = talendJobsPath + File_SEPARATOR + typeId + File_SEPARATOR + "COMMON_ETLJOBS";
+		this.etlJobsFolder = talendJobsPath + File_SEPARATOR + typeId ;
 	}
 
-	public void parseContextParams(final Map<String, String> contextParams, final Map<String, String> paramsVals) {
-
-		Set<Map.Entry<String, String>> set = contextParams.entrySet();
-		for (Map.Entry<String, String> entry : set) {
-			String paramval = entry.getValue();
-			if (paramval.indexOf("{") != -1) {
-				int endindex = paramval.indexOf("}");
-				String key = paramval.substring(1, endindex);
-				String value = paramsVals.get(key);
-				if (value != null) {
-					entry.setValue(paramval.replace("{" + key + "}", value));
-				} else
-					System.out.println(key + " --> " + paramval + " --> " + value);
-			}
-		}
-	}
-	
-
-	public static String[] convertToContextParamsArray(Map<String, String> params) {
-		if (params == null || params.size() == 0)
-			return new String[0];
-		String[] parameters = new String[params.size()];
-		Set<Map.Entry<String, String>> set = params.entrySet();
-		int index = 0;
-		for (Map.Entry<String, String> entry : set) {
-			String param = "--context_param " + entry.getKey() + "=" + entry.getValue();
-			parameters[index] = param;
-			index++;
-		}
-		return parameters;
-	}
-
-	public Process runETLjar(String jobFileName, String dependencyJARs, Map<String, String> params) throws InterruptedException, IOException {
-		return runETLjar(jobFileName, dependencyJARs, convertToContextParamsArray(params));
-	}
-	
-	public Process runETLjar(String jobFileName, String dependencyJARs, String[] ilContextParamsArr)
-			throws InterruptedException, IOException {
-		String[] commandforExecution = getETLExecCommand(dependencyJARs, jobFileName, ilContextParamsArr);
-		Process proc;
+	public void runETLjar(String jobFileName, String dependencyJARs, Map<String, String> params) throws InterruptedException, IOException {
+		String[] commandforExecution = getETLExecCommand(dependencyJARs, jobFileName, convertToContextParamsArray(params));
+		Process process;
 		try {
-			proc = Runtime.getRuntime().exec(commandforExecution);
+		    process = Runtime.getRuntime().exec(commandforExecution);
 		} catch (NullPointerException e) {
 			throw new InterruptedException("Job name found null");
 		}
-		errorStreamGobbler = new DataExtractionStreamGobbler(proc.getErrorStream());
-		inputStreamGobbler = new DataExtractionStreamGobbler(proc.getInputStream());
+		errorStreamGobbler = new DataExtractionStreamGobbler(process.getErrorStream());
+		inputStreamGobbler = new DataExtractionStreamGobbler(process.getInputStream());
 		inputStreamGobbler.start();
 		errorStreamGobbler.start();
 		
-		String errorStreamMsg = errorStreamGobbler.getOutput();
-
-		if (StringUtils.isNotBlank(errorStreamMsg)
-				&& errorStreamMsg.contains("Could not find or load main class local_project")) {
-			throw new InterruptedException(errorStreamMsg);
-		}
-		return proc;
-	}
-	
-
-	public void runETLjar(Process process)
-			throws InterruptedException, IOException {
-
 		int exitValue = 1;
 		
 		if ( process != null ) {
@@ -106,7 +56,7 @@ public class DataExtractionETLJobExecution {
 		}
 	}
 
-	public String[] getETLExecCommand(String dependentJars, String jobMainClass, String[] contextparmsArray) {
+	private String[] getETLExecCommand(String dependentJars, String jobMainClass, String[] contextparmsArray) {
 		ArrayList<String> list = new ArrayList<String>();
 		list.add("java");
 		list.add("-cp");
@@ -122,7 +72,7 @@ public class DataExtractionETLJobExecution {
 			String il_jar = il_jars_array[i];
 			sb.append(etlJobsFolder + "/" + il_jar);
 			if (i < il_jars_array.length - 1) {
-				sb.append(PATH_SEPERATOR);
+				sb.append(PATH_SEPARATOR);
 			}
 		}
 
@@ -136,26 +86,40 @@ public class DataExtractionETLJobExecution {
 
 		String[] command = new String[list.size()];
 		command = list.toArray(command);
-		/*System.out.println("Etl Jobs command --> ");
+		 System.out.println("Etl Jobs command --> ");
 		for (String commondLine : list) {
 			System.out.println(commondLine);
-		}*/
+		} 
 		return command;
 	}
 
-	public String commonETLLib(String dir) {
+	private static String[] convertToContextParamsArray(Map<String, String> params) {
+    	if (params == null || params.size() == 0)
+    		return new String[0];
+    	String[] parameters = new String[params.size()];
+    	Set<Map.Entry<String, String>> set = params.entrySet();
+    	int index = 0;
+    	for (Map.Entry<String, String> entry : set) {
+    		String param = "--context_param " + entry.getKey() + "=" + entry.getValue();
+    		parameters[index] = param;
+    		index++;
+    	}
+    	return parameters;
+    }
+
+    private static String commonETLLib(String dir) {
 		File[] files = getFiles(dir, "jar");
 		StringBuilder sb = new StringBuilder();
 
 		for (File file : files) {
 			sb.append(file.getAbsolutePath());
-			sb.append(PATH_SEPERATOR);
+			sb.append(PATH_SEPARATOR);
 		}
 
 		return sb.toString();
 	}
 
-	public File[] getFiles(String dir, final String fileExtn) {
+	private static File[] getFiles(String dir, final String fileExtn) {
 		File[] files = null;
 		if (StringUtils.isNotBlank(dir)) {
 			File fileDir = new File(dir);
@@ -168,16 +132,10 @@ public class DataExtractionETLJobExecution {
 						return name.endsWith(fileExtn);
 					}
 				});
-
 			}
 		}
 
 		return files;
-	}
-
-	public String getConvertedDate(Date date) {
-		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:MM:SS");
-		return formatter.format(date);
 	}
 
 }

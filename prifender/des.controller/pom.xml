@@ -10,10 +10,10 @@
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>1.1.0-SNAPSHOT</version>
     </parent>
 
-     <dependencies>
+    <dependencies>
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.stub</artifactId>
@@ -21,69 +21,69 @@
         </dependency>
         <dependency>
             <groupId>com.prifender</groupId>
+            <artifactId>encryption.api</artifactId>
+            <version>${prifender.version}</version>
+            <exclusions>
+				<exclusion>
+					<groupId>org.springframework</groupId>
+					<artifactId>spring-context</artifactId>
+				</exclusion>
+			</exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.prifender</groupId>
             <artifactId>encryption.service.client.java</artifactId>
             <version>${prifender.version}</version>
             <exclusions>
-            <exclusion>
-             <groupId>org.springframework</groupId>
-             <artifactId>spring-context</artifactId>
-            </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-		    <groupId>commons-lang</groupId>
-		    <artifactId>commons-lang</artifactId>
-		    <version>${commonslang.version}</version>
-		</dependency>
-		  <dependency>
-		    <groupId>com.googlecode.json-simple</groupId>
-		    <artifactId>json-simple</artifactId>
-		    <version>${jsonsimple.version}</version>
+				<exclusion>
+					<groupId>org.springframework</groupId>
+					<artifactId>spring-context</artifactId>
+				</exclusion>
+			</exclusions>
 	    </dependency>
+        <dependency>
+			<groupId>com.prifender</groupId>
+			<artifactId>messaging.rabbitmq</artifactId>
+			<version>${prifender.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework</groupId>
+					<artifactId>spring-context</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>com.prifender</groupId>
+			<artifactId>messaging.api</artifactId>
+			<version>${prifender.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework</groupId>
+					<artifactId>spring-context</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+ 
 		<dependency>
 		    <groupId>org.apache.commons</groupId>
 		    <artifactId>commons-lang3</artifactId>
 		    <version>${commonslang3.version}</version>
 		</dependency>
         <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>messaging.rabbitmq</artifactId>
-            <version>${prifender.version}</version>
-            <exclusions>
-            <exclusion>
-             <groupId>org.springframework</groupId>
-             <artifactId>spring-context</artifactId>
-            </exclusion>
-            </exclusions>
-        </dependency> 
-         <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>messaging.api</artifactId>
-            <version>${prifender.version}</version>
-            <exclusions>
-            <exclusion>
-             <groupId>org.springframework</groupId>
-             <artifactId>spring-context</artifactId>
-            </exclusion>
-            </exclusions>
-        </dependency>  
-          <dependency>
             <groupId>org.glassfish</groupId>
             <artifactId>javax.json</artifactId>
             <version>${glassfish.json.version}</version>
+		</dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>${jsonsimple.version}</version>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven.surefire.plugin.version}</version>
-                <configuration>
-                    <skipTests>true</skipTests>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>

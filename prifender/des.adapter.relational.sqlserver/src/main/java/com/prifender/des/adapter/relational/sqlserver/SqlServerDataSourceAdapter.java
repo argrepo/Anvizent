@@ -1,5 +1,15 @@
 package com.prifender.des.adapter.relational.sqlserver;
 
+import static com.prifender.des.util.DatabaseUtil.closeSqlObject;
+import static com.prifender.des.util.DatabaseUtil.getDataType;
+import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
+import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
+import static com.prifender.des.util.DatabaseUtil.getCountRows;
+import static com.prifender.des.util.DatabaseUtil.createDir;
+import static com.prifender.des.util.DatabaseUtil.getUUID;
+
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -9,20 +19,15 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import com.prifender.des.DataExtractionServiceException;
-import com.prifender.des.controller.DataExtractionThread;
-import com.prifender.des.controller.DataExtractionUtil;
 import com.prifender.des.controller.DataSourceAdapter;
 import com.prifender.des.model.ConnectionParamDef;
 import com.prifender.des.model.ConnectionParamDef.TypeEnum;
@@ -30,37 +35,50 @@ import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.Constraint;
 import com.prifender.des.model.DataExtractionJob;
 import com.prifender.des.model.DataExtractionSpec;
+import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
 import com.prifender.des.model.NamedType;
 import com.prifender.des.model.Problem;
 import com.prifender.des.model.Type;
-import com.prifender.des.util.DatabaseUtil;
-import com.prifender.encryption.service.client.EncryptionServiceClient;
-import com.prifender.messaging.api.MessagingConnectionFactory;
 
 @Component
-public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
-
-	@Autowired
-	DatabaseUtil databaseUtilService;
+public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 
     @Value( "${des.home}" )
     private String desHome;
-    @Autowired
-	EncryptionServiceClient encryptionServiceClient;
-    private static final String TYPE_ID = "SqlServer";
-
-	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label("Microsoft SQL Server")
-			.addConnectionParamsItem(new ConnectionParamDef().id("Host").label("Host").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Port").label("Port").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("UserName").label("UserName").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Password").label("Password").type(TypeEnum.PASSWORD))
-			.addConnectionParamsItem(new ConnectionParamDef().id("Instance").label("Instance").type(TypeEnum.STRING).required(false))
-			.addConnectionParamsItem(new ConnectionParamDef().id("DatabaseName").label("DatabaseName").type(TypeEnum.STRING))
-			.addConnectionParamsItem(new ConnectionParamDef().id("SchemaName").label("SchemaName").type(TypeEnum.STRING));
+    
+    private static final String JOB_NAME = "local_project.prifender_mssql_v1_0_1.Prifender_MSSQL_v1";
 	
+	private static final String DEPENDENCY_JAR = "prifender_mssql_v1_0_1.jar";
+	
+	private static final int  MIN_THRESHOULD_ROWS = 100000;		
+	 
+	private static final int  MAX_THRESHOULD_ROWS = 200000;
+
+    public static final String TYPE_ID = "SqlServer";
+    
+    public static final String TYPE_LABEL = "Microsoft SQL Server";
+    
+    // Instance
+
+    public static final String PARAM_INSTANCE_ID = "Instance";
+    public static final String PARAM_INSTANCE_LABEL = "Instance";
+    public static final String PARAM_INSTANCE_DESCRIPTION = "The name of the instance";
+    
+    public static final ConnectionParamDef PARAM_INSTANCE
+        = new ConnectionParamDef().id( PARAM_INSTANCE_ID ).label( PARAM_INSTANCE_LABEL ).description( PARAM_INSTANCE_DESCRIPTION ).type( TypeEnum.STRING ).required( false );
+    
+	private static final DataSourceType TYPE = new DataSourceType()
+	    .id( TYPE_ID ).label( TYPE_LABEL )
+        .addConnectionParamsItem( PARAM_HOST )
+        .addConnectionParamsItem( clone( PARAM_PORT ).required( false ).defaultValue( "1433" ) )
+        .addConnectionParamsItem( PARAM_USER )
+        .addConnectionParamsItem( PARAM_PASSWORD )
+        .addConnectionParamsItem( PARAM_INSTANCE )
+        .addConnectionParamsItem( PARAM_DATABASE )
+        .addConnectionParamsItem( PARAM_SCHEMA );
 
 	@Override
 	public DataSourceType getDataSourceType() {
@@ -79,7 +97,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		} catch (ClassNotFoundException | SQLException e) {
 			return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
 		} finally {
-			databaseUtilService.closeSqlObject(connection);
+			closeSqlObject(connection);
 		}
 
 		return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE)
@@ -90,8 +108,8 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 	public Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException {
 		Metadata metadata = null;
 		Connection connection = null;
-		final String databaseName = databaseUtilService.getConnectionParam(ds, "DatabaseName");
-		final String schemaName = databaseUtilService.getConnectionParam(ds, "SchemaName");
+		final String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
+		final String schemaName = getConnectionParam(ds, PARAM_SCHEMA_ID);
 		try {
 			connection = getDataBaseConnection(ds);
 			metadata = metadataByConnection(connection, schemaName, databaseName);
@@ -102,27 +120,27 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		} catch (ClassNotFoundException | SQLException e) {
 			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
 		} finally {
-			databaseUtilService.closeSqlObject(connection);
+			closeSqlObject(connection);
 		}
 		return metadata;
 	}
 
-	public Connection getDataBaseConnection(DataSource ds)
+	private Connection getDataBaseConnection(DataSource ds)
 			throws SQLException, ClassNotFoundException, DataExtractionServiceException {
 		if (ds == null) {
 			throw new DataExtractionServiceException(
 					new Problem().code("datasource error").message("datasource is null"));
 		}
-		final String hostName = databaseUtilService.getConnectionParam(ds, "Host");
-		final String port = databaseUtilService.getConnectionParam(ds, "Port");
-		final String userName = databaseUtilService.getConnectionParam(ds, "UserName");
-		final String password = databaseUtilService.getConnectionParam(ds, "Password");
-		final String databaseName = databaseUtilService.getConnectionParam(ds, "DatabaseName");
-		final String instance = databaseUtilService.getConnectionParam(ds, "Instance");
-		return getDataBaseConnection1(hostName, port, databaseName, userName, password,instance);
+		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
+		final String port = getConnectionParam(ds, PARAM_PORT_ID);
+		final String userName = getConnectionParam(ds, PARAM_USER_ID);
+		final String password = getConnectionParam(ds, PARAM_PASSWORD_ID);
+		final String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
+        final String instance = getConnectionParam(ds, PARAM_INSTANCE_ID);
+        return getDataBaseConnection(hostName, port, databaseName, userName, password,instance);
 	}
 
-	public Connection getDataBaseConnection1(String hostName, String port, String databaseName, String userName,
+	private Connection getDataBaseConnection(String hostName, String port, String databaseName, String userName,
 			String password,String instance) throws SQLException, ClassNotFoundException {
 		Connection connection = null;
 		String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
@@ -132,7 +150,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		return connection;
 	}
 
-	public Metadata metadataByConnection(Connection con, String schemaName, String databaseName) throws DataExtractionServiceException {
+	private Metadata metadataByConnection(Connection con, String schemaName, String databaseName) throws DataExtractionServiceException {
 		Metadata metadata = new Metadata();
 		List<String> dataSourceList = null;
 		String dataSourceName = null;
@@ -158,7 +176,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 			for (String dataSource : dataSourceList) {
 				List<NamedType> tableList = getSchemaRelatedTables(con, dataSource);
 				for (NamedType namedType : tableList) {
-					// table entry type
+					/* table entry type */
 					Type entryType = new Type().kind(Type.KindEnum.OBJECT);
 					namedType.getType().setEntryType(entryType);
 
@@ -169,7 +187,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 					List<NamedType> attributeListForColumns = getTableRelatedColumns(con, dataSource, tableName);
 					entryType.setAttributes(attributeListForColumns);
 
-					// add primary keys here
+					/* add primary keys here */
 					List<Constraint> pkFkConstraintList = new ArrayList<Constraint>();
 					List<Constraint> pkConstraintList = getTableRelatedPkInfo(con, dataSource, namedType.getName());
 					if (pkConstraintList != null) {
@@ -177,7 +195,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 							pkFkConstraintList.add(constraint);
 						}
 					}
-					// add foreign keys here
+					/* add foreign keys here */
 					List<Constraint> fkConstraintList = getTableRelatedFkInfo(con, dataSource, namedType.getName());
 					if (fkConstraintList != null) {
 						for (Constraint constraint : fkConstraintList) {
@@ -195,7 +213,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		return metadata;
 	}
 
-	public List<NamedType> getSchemaRelatedTables(Connection con, String schemaName) throws SQLException {
+	private List<NamedType> getSchemaRelatedTables(Connection con, String schemaName) throws SQLException {
 		List<NamedType> tableList = new ArrayList<>();
 		PreparedStatement preparedStatement = null;
 		ResultSet resultSet = null;
@@ -232,13 +250,13 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				});
 			}
 		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet, preparedStatement);
 		}
 
 		return tableList;
 	}
 
-	public List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName) throws SQLException, DataExtractionServiceException {
+	private List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName) throws SQLException, DataExtractionServiceException {
 		ResultSet rs = null;
 		PreparedStatement pstmt = null;
 		String columnsQuery = null;
@@ -256,9 +274,10 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 					NamedType attributeForColumn = new NamedType();
 					attributeForColumn.setName(rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
 					Type columnInfo = getColumnInfo(con,tableName,rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
-					if(columnInfo != null){ 
+					if(columnInfo != null)
+					{ 
 						Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-													   .dataType(databaseUtilService.getDataType(rs.getString(2).toUpperCase())) 
+													   .dataType(getDataType(rs.getString(2).toUpperCase())) 
 													   .nullable(columnInfo.getNullable())
 													   .autoIncrement(columnInfo.getAutoIncrement())
 													   .size(columnInfo.getSize());
@@ -268,12 +287,12 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				}
 			}
 		} finally {
-			databaseUtilService.closeSqlObject(rs, pstmt);
+			closeSqlObject(rs, pstmt);
 		}
 
 		return attributeList;
 	}
-	public Type getColumnInfo(Connection connection,String tableName,String columnName) throws DataExtractionServiceException{
+	private Type getColumnInfo(Connection connection,String tableName,String columnName) throws DataExtractionServiceException{
 		Type type= new Type();
 		ResultSet resultSet = null;
 		try {
@@ -290,12 +309,12 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 		} catch (SQLException e) {
 			throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
 		}finally{
-			databaseUtilService.closeSqlObject(resultSet);
+			 closeSqlObject(resultSet);
 		}
 		return type;
 	}
 	
-	public List<Constraint> getTableRelatedFkInfo(Connection con, String schemaName, String tableName) throws SQLException {
+	private List<Constraint> getTableRelatedFkInfo(Connection con, String schemaName, String tableName) throws SQLException {
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
 		List<Constraint> constraintList = new ArrayList<>();
@@ -306,24 +325,22 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				String tabName = tableName.split("\\.")[2].replaceAll("\\[", "").replaceAll("\\]", "");
 
 				StringBuilder queryBuilder = new StringBuilder();
-				queryBuilder
-						.append("SELECT SCHEMA_NAME(t.schema_id) AS type_schema,object_name(c.object_id)as Table_Name,  c.name AS column_name ,c.column_id  ,c.max_length ")
-						.append(" ,c.precision  ,c.scale ,i.name AS index_name ,is_identity  ,i.is_primary_key  ,f.name AS foreign_key_name  ,OBJECT_NAME (f.referenced_object_id) AS referenced_object ,COL_NAME(fc.referenced_object_id, fc.referenced_column_id) AS referenced_column_name FROM ")
-						.append(dbName)
-						.append(".sys.columns AS c INNER JOIN ").append(dbName).append(".sys.types AS t  ON c.user_type_id=t.user_type_id LEFT OUTER JOIN ")
-						.append(dbName).append(".sys.index_columns AS ic ")
-						.append(" ON ic.object_id = c.object_id   AND c.column_id = ic.column_id LEFT OUTER JOIN ")
-						.append(dbName)
-						.append(".sys.indexes AS i ON i.object_id = ic.object_id AND i.index_id = ic.index_id ")
-						.append(" LEFT OUTER JOIN ").append(dbName)
-						.append(".sys.foreign_key_columns AS fc  ON fc.parent_object_id = c.object_id  AND COL_NAME(fc.parent_object_id, fc.parent_column_id) = c.name ")
-						.append(" LEFT OUTER JOIN ").append(dbName)
-						.append(".sys.foreign_keys AS f  ON f.parent_object_id = c.object_id  AND fc.constraint_object_id = f.object_id ")
-						.append(" WHERE SCHEMA_NAME(t.schema_id)=? and c.object_id = OBJECT_ID('").append(tabName)
-						.append("') ORDER BY c.column_id ");
-
+				queryBuilder .append(" SELECT ["+dbName+"].CONSTRAINT_CATALOG AS CONSTRAINT_CATALOG, ["+dbName+"].CONSTRAINT_SCHEMA AS CONSTRAINT_SCHEMA, ["+dbName+"].TABLE_NAME AS TABLE_NAME ,["+dbName+"].COLUMN_NAME AS column_name ")
+						     .append(" ,["+dbName+"].CONSTRAINT_NAME AS FK_CONSTRAINT_NAME ")
+						     .append("  ,["+dbName+"].ORDINAL_POSITION AS FK_ORDINAL_POSITION  ,KCU2.CONSTRAINT_NAME AS REFERENCED_CONSTRAINT_NAME ") 
+						     .append(" ,KCU2.TABLE_NAME AS referenced_object  ,KCU2.COLUMN_NAME AS REFERENCED_COLUMN_NAME   ,KCU2.ORDINAL_POSITION AS REFERENCED_ORDINAL_POSITION " ) 
+						     .append(" FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS RC ")
+						     .append(" INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS ["+dbName+"]   ON ["+dbName+"].CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG ")  
+						     .append("  AND ["+dbName+"].CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA  AND ["+dbName+"].CONSTRAINT_NAME = RC.CONSTRAINT_NAME ")
+				             .append(" INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KCU2   ON KCU2.CONSTRAINT_CATALOG = RC.UNIQUE_CONSTRAINT_CATALOG  ")
+				             .append("  AND KCU2.CONSTRAINT_SCHEMA = RC.UNIQUE_CONSTRAINT_SCHEMA   AND KCU2.CONSTRAINT_NAME = RC.UNIQUE_CONSTRAINT_NAME ")
+				             .append(" AND KCU2.ORDINAL_POSITION = ["+dbName+"].ORDINAL_POSITION where  ["+dbName+"].CONSTRAINT_CATALOG = ?  and ")
+				             .append(" ["+dbName+"].CONSTRAINT_SCHEMA = ?  and ["+dbName+"].TABLE_NAME = ? ");
+				
 				preparedStatement = con.prepareStatement(queryBuilder.toString());
-				preparedStatement.setString(1, schema);
+				preparedStatement.setString(1, dbName);
+				preparedStatement.setString(2, schema);
+				preparedStatement.setString(3, tabName);
 				resultSet = preparedStatement.executeQuery();
 				while (resultSet.next()) {
 					if (resultSet.getString("referenced_column_name") != null) {
@@ -335,7 +352,7 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 							if (isForeignKey) {
 								fkAttributes.add(resultSet.getString("referenced_column_name"));
 								pkOfFkAttributes.add(resultSet.getString("column_name"));
-								constraint.setTarget(dbName+"."+resultSet.getString("type_schema")+"."+resultSet.getString("referenced_object"));
+								constraint.setTarget(resultSet.getString("CONSTRAINT_CATALOG")+"."+resultSet.getString("CONSTRAINT_SCHEMA")+"."+resultSet.getString("referenced_object"));
 							}
 						}
 						constraint.setAttributes(pkOfFkAttributes);
@@ -345,13 +362,13 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				}
 			}
 		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet, preparedStatement);
 		}
 
 		return constraintList;
 	}
 
-	public List<Constraint> getTableRelatedPkInfo(Connection con, String schemaName, String tableName) throws SQLException {
+	private List<Constraint> getTableRelatedPkInfo(Connection con, String schemaName, String tableName) throws SQLException {
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
 		List<Constraint> constraintList = new ArrayList<Constraint>();
@@ -364,8 +381,8 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 
 				StringBuilder queryBuilder = new StringBuilder();
 				queryBuilder.append("SELECT KU.table_name as TABLENAME,column_name as PRIMARYKEYCOLUMN ")
-						.append("FROM "+dbName+".INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS TC ")
-						.append("INNER JOIN "+dbName+".INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU ")
+						.append("FROM ["+dbName+"].INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS TC ")
+						.append("INNER JOIN ["+dbName+"].INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU ")
 						.append("ON TC.CONSTRAINT_TYPE = 'PRIMARY KEY' AND ")
 						.append("TC.CONSTRAINT_NAME = KU.CONSTRAINT_NAME AND  ")
 						.append("KU.table_name=? and KU.CONSTRAINT_SCHEMA=? ")
@@ -387,12 +404,12 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				}
 			}
 		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet, preparedStatement);
 		}
 		return constraintList;
 	}
 
-	public List<String> getAllDatasourcesFromDatabase(Connection con) throws SQLException {
+	private List<String> getAllDatasourcesFromDatabase(Connection con) throws SQLException {
 		List<String> schemaList = new ArrayList<>();
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
@@ -411,12 +428,12 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 			Collections.sort(schemaList, String.CASE_INSENSITIVE_ORDER);
 
 		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet, preparedStatement);
 		}
 		return schemaList;
 	}
 
-	public List<String> getSchemaByDatabse(Connection con, String databaseName) throws SQLException {
+	private List<String> getSchemaByDatabse(Connection con, String databaseName) throws SQLException {
 		List<String> schemas = new ArrayList<>();
 		PreparedStatement preparedStatement = null;
 		ResultSet resultSet = null;
@@ -432,20 +449,19 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				schemas.add(resultSet.getString(1));
 			}
 		} finally {
-			databaseUtilService.closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet, preparedStatement);
 		}
 
 		return schemas;
 	}
 
-	@Override
-	public int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
+	private int getTableCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
 		int countRows = 0;
 		Connection connection = null;
 		try {
 			connection = getDataBaseConnection(ds);
 			
-			String schemaName = databaseUtilService.getConnectionParam(ds, "SchemaName");
+			String schemaName = getConnectionParam(ds, PARAM_SCHEMA_ID);
 			String[] schemaTable = StringUtils.split(tableName, ".");
 			if (schemaTable.length == 3 ) {
 				schemaName = schemaTable[1];
@@ -455,52 +471,301 @@ public final class SqlServerDataSourceAdapter implements DataSourceAdapter {
 				schemaName = schemaTable[0];
 				tableName = schemaTable[1];
 			}
-			countRows = databaseUtilService.getCountRows(connection, schemaName + "." + tableName);
+			countRows = getCountRows(connection, schemaName + "." + tableName);
 		} catch (ClassNotFoundException | SQLException e) {
 			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
 		} catch (Exception e) {
 			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
 		} finally {
-			databaseUtilService.closeSqlObject(connection);
+			closeSqlObject(connection);
 		}
 		return countRows;
 	}
 
 	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec,final MessagingConnectionFactory messaging)
-			throws DataExtractionServiceException {
+	public StartResult startDataExtractionJob(final DataSource ds, final DataExtractionSpec spec ,final  int containersCount) throws DataExtractionServiceException 
+	{
 		StartResult startResult = null;
 		try {
-
+			
 			String tableName = spec.getCollection();
-			int dataSize = getCountRows(ds, tableName);
 			
-			if (dataSize == 0) {
-				throw new DataExtractionServiceException(new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
+			int rowCount = getTableCountRows(ds, tableName);
+
+			if (rowCount == 0) 
+			{
+				throw new DataExtractionServiceException( new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
 			}
-			String[] schemaTableName = StringUtils.split(tableName, "." );
-			tableName = schemaTableName[schemaTableName.length-1];
+			
+			String[] schemaTableName = StringUtils.split(tableName, ".");
+			
+			tableName = schemaTableName[schemaTableName.length - 1];
+			
 			DataExtractionJob job = new DataExtractionJob()
+					
 					.id(spec.getDataSource() + "-" + tableName + "-" + UUID.randomUUID().toString())
+					
 					.state(DataExtractionJob.StateEnum.WAITING);
-			ExecutorService executor = Executors.newSingleThreadExecutor();
-			String adapterHome = DataExtractionUtil.createDir(this.desHome, TYPE_ID);
-			try {
-				DataExtractionThread dataExtractionExecutor = new SqlServerDataExtractionExecutor(ds, spec, job, dataSize, adapterHome,messaging,encryptionServiceClient);
-				executor.execute(dataExtractionExecutor);
-				startResult = new StartResult(job, dataExtractionExecutor);
-			} catch (Exception err) {
-				throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
-			} finally {
-				executor.shutdown();
-				executor.awaitTermination(1, TimeUnit.SECONDS);
+					
+ 
+			String adapterHome = createDir(this.desHome, TYPE_ID);
+				
+		    startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, rowCount, adapterHome , containersCount));
+		} 
+		catch (Exception exe) 
+		{
+			
+			throw new DataExtractionServiceException(new Problem().code("job error").message(exe.getMessage()));
+		}
+		
+		return startResult;
+	}
+
+	/**
+	 * Runs the DataExtraction Job
+	 * 
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param rowCount
+	 * @param adapterHome
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec ,
+			DataExtractionJob job,int rowCount ,String adapterHome , int containersCount) throws DataExtractionServiceException{
+		
+		int totalSampleSize = 0;
+		
+		int tasksCount = 0;
+		
+		List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
+		
+		try
+		{
+				
+			if ( spec.getScope( ).equals( DataExtractionSpec.ScopeEnum.SAMPLE ) )
+			{
+				
+				if ( spec.getSampleSize( ) == null )
+				{
+					
+					throw new DataExtractionServiceException( new Problem( ).code( "Meta data error" ).message( "sampleSize value not found" ) );
+					
+				}
+				
+				totalSampleSize = rowCount < spec.getSampleSize( ) ? rowCount : spec.getSampleSize( );
+				
+			}else
+			{
+				totalSampleSize = rowCount;
 			}
+			
+			   synchronized (job) {
+	        	   
+	        	   job.setOutputMessagingQueue("DES-" + job.getId());
+	        	   
+	        	   job.objectsExtracted(0);
+			
+			   }
+			if (totalSampleSize <= MIN_THRESHOULD_ROWS ) {
+				
+				int offset = 1;
+				
+				dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  totalSampleSize ));
+				
+				tasksCount++;
+				
+			} else {
+				
+				int taskSampleSize = generateTaskSampleSize( totalSampleSize , containersCount );
+				
+				if ( taskSampleSize <= MIN_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MIN_THRESHOULD_ROWS ;						 
+				}
+				if ( taskSampleSize > MAX_THRESHOULD_ROWS ) 
+				{  						 
+					taskSampleSize = MAX_THRESHOULD_ROWS ;						 
+				}
+				
+				int noOfTasks = totalSampleSize / taskSampleSize ;			
+				
+				int remainingSampleSize = totalSampleSize % taskSampleSize;		
+				
+				for (int i = 0 ; i < noOfTasks ; i++) 
+				{
+					
+					int offset = taskSampleSize * i + 1;	
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  taskSampleSize ));
+					
+					tasksCount++;
+				}
+				
+				if (remainingSampleSize > 0) 
+				{								 
+					int offset = noOfTasks * taskSampleSize + 1;
+					
+					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  remainingSampleSize ));
+					
+					tasksCount++;
+				}
+			}
+			 
+           synchronized (job) {
+         
+        	   job.setTasksCount(tasksCount);
+        	   
+        	   job.setObjectCount(totalSampleSize);
+           }
+
+		} catch ( Exception e )
+		{
+			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
+		}
+		return dataExtractionJobTasks;
+	}
+
+	/**
+	 * Gets the connection params which are required for the Data Extraction
+	 * @param ds
+	 * @param spec
+	 * @param job
+	 * @param adapterHome
+	 * @param offset
+	 * @param limit
+	 * @return
+	 * @throws DataExtractionServiceException
+	 */
+	private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec,
+			DataExtractionJob job, String adapterHome, int offset, int limit) throws DataExtractionServiceException {
+
+		DataExtractionTask dataExtractionTask = new DataExtractionTask();
+
+		try {
+			 
+			final String dataSourceHost = getConnectionParam(ds, PARAM_HOST_ID); 
+			
+			final String dataSourcePort = getConnectionParam(ds, PARAM_PORT_ID);
+			
+			final String dataSourceUser =  getConnectionParam(ds, PARAM_USER_ID);
+			
+			final String dataSourcePassword =  getConnectionParam(ds, PARAM_PASSWORD_ID);
+			
+			String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
+			
+			String schemaName = getConnectionParam(ds, PARAM_SCHEMA_ID);
+			
+			final String instanceName = getConnectionParam(ds, PARAM_INSTANCE_ID);
+			
+			String tableName = spec.getCollection();
+			
+			String[] schemaTable = StringUtils.split(tableName, ".");
+			
+			if (schemaTable.length == 3 ) 
+			{
+				databaseName = schemaTable[0];
+				schemaName = schemaTable[1];
+				tableName = schemaTable[2];
+				
+			}
+			if (schemaTable.length == 2 ) 
+			{
+				schemaName = schemaTable[0];
+				tableName = schemaTable[1];
+			}
+			if (databaseName == null) {
+				throw new DataExtractionServiceException(new Problem().code("unknown database").message("database name not found in collection"));
+			}
+
+			final String dataSourceTableName = schemaName + "." + tableName;
+			 
+			Map< String , String > contextParams = getContextParams( adapterHome , JOB_NAME , dataSourceUser ,
+					
+					dataSourcePassword , dataSourceTableName , getDataSourceColumnNames(ds, spec,".") , dataSourceHost , dataSourcePort ,
+					
+					databaseName ,instanceName, job.getOutputMessagingQueue() , String.valueOf(offset) , String.valueOf( limit )  ,
+					
+					String.valueOf( DataExtractionSpec.ScopeEnum.SAMPLE ) , String.valueOf( limit ) );
+			
+			dataExtractionTask.taskId("DES-Task-"+getUUID( ))
+							
+							                    .jobId( job.getId( ) )
+					                           
+					                            .typeId( TYPE_ID +"__"+JOB_NAME + "__" +DEPENDENCY_JAR )
+					                           
+					                            .contextParameters( contextParams )
+					                           
+					                            .numberOfFailedAttempts( 0 );
 			
 
-		} catch (InterruptedException err) {
-			throw new DataExtractionServiceException(new Problem().code("job error").message(err.getMessage()));
+		} catch (Exception e) {
+			throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
 		}
-		return startResult;
+		return dataExtractionTask;
+	}
+
+	/**
+	 *  The Context params for the data extraction process
+	 * 
+	 * @param jobFilesPath
+	 * @param jobName
+	 * @param dataSourceUser
+	 * @param dataSourcePassword
+	 * @param dataSourceTableName
+	 * @param dataSourceColumnNames
+	 * @param dataSourceHost
+	 * @param dataSourcePort
+	 * @param dataSourceName
+	 * @param jobId
+	 * @param offset
+	 * @param limit
+	 * @param dataSourceScope
+	 * @param dataSourceSampleSize
+	 * @return Map< String , String >
+	 * @throws IOException
+	 */
+	private Map<String, String> getContextParams(String jobFilesPath, String jobName, String dataSourceUser,
+			String dataSourcePassword, String dataSourceTableName, String dataSourceColumnNames, String dataSourceHost,
+			String dataSourcePort, String dataSourceName, String instanceName, String jobId, String offset,
+			String limit, String dataSourceScope, String dataSourceSampleSize) throws IOException {
+		Map<String, String> ilParamsVals = new LinkedHashMap<>();
+
+		ilParamsVals.put("JOB_STARTDATETIME", getConvertedDate(new Date()));
+
+		ilParamsVals.put("FILE_PATH", jobFilesPath);
+		
+		ilParamsVals.put("JOB_NAME", jobName);
+		
+		ilParamsVals.put("DATASOURCE_USER", dataSourceUser);
+		
+		ilParamsVals.put("DATASOURCE_PASS", dataSourcePassword);
+		
+		ilParamsVals.put("DATASOURCE_TABLE_NAME", dataSourceTableName);
+		
+		ilParamsVals.put("DATASOURCE_COLUMN_NAMES", dataSourceColumnNames);
+		
+		ilParamsVals.put("DATASOURCE_HOST", dataSourceHost);
+		
+		ilParamsVals.put("DATASOURCE_PORT", dataSourcePort);
+		
+		ilParamsVals.put("INSTANCE_NAME", instanceName);
+		
+		ilParamsVals.put("DATASOURCE_NAME", dataSourceName);
+		
+		ilParamsVals.put("JOB_ID", jobId);
+		
+		ilParamsVals.put("OFFSET", offset);
+		
+		ilParamsVals.put("LIMIT", limit);
+		
+		ilParamsVals.put("SCOPE", dataSourceScope);
+		
+		ilParamsVals.put("SAMPLESIZE", dataSourceSampleSize);
+
+		return ilParamsVals;
+
 	}
 
 }
