@@ -1,0 +1,39 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>des.adapter.dss.googledrive</artifactId>
+	<name>Prifender Data Extraction Service Adapter for Google Drive</name>
+	<packaging>jar</packaging>
+
+	<parent>
+		<groupId>com.prifender</groupId>
+		<artifactId>prifender</artifactId>
+		<version>0.8.0-SNAPSHOT</version>
+	</parent>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.prifender</groupId>
+			<artifactId>des.controller</artifactId>
+			<version>${prifender.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.api-client</groupId>
+			<artifactId>google-api-client</artifactId>
+			<version>${google.api.client.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.apis</groupId>
+			<artifactId>google-api-services-drive</artifactId>
+			<version>${google.apis.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.oauth-client</groupId>
+			<artifactId>google-oauth-client-jetty</artifactId>
+			<version>${google.api.client.version}</version>
+		</dependency>
+	</dependencies>
+
+</project>
