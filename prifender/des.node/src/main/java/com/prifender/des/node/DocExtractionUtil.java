@@ -24,12 +24,14 @@ public final class DocExtractionUtil
 	public static String extractFileText(final File file) throws IOException, SAXException, TikaException
 	{
 
-		Metadata meta = new Metadata();
+		Metadata metaData = new Metadata();
+		metaData.set(Metadata.RESOURCE_NAME_KEY, file.getName());
+		
 		ContentHandler handler = new BodyContentHandler(-1);
 		Parser parser = new AutoDetectParser(new TikaConfig(TikaConfig.class.getClassLoader()));
 
 		InputStream is = new FileInputStream(file);
-		parser.parse(is, handler, meta, new ParseContext());
+		parser.parse(is, handler, metaData, new ParseContext());
 
 		is.close();
 		return handler.toString();
@@ -89,7 +91,11 @@ public final class DocExtractionUtil
 			}
 		}
 
+<<<<<<< Upstream, based on origin/master
 		if( chunkList.size() == 0  || sb.toString().length() > 0)
+=======
+		if( chunkList.size() == 0 || sb.toString().length() > 0)
+>>>>>>> 33b6130 #6414 Issue Fix
 		{
 			chunkList.add(sb.toString());
 		}
