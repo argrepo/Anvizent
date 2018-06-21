@@ -89,7 +89,7 @@ public final class DocExtractionUtil
 			}
 		}
 
-		if( chunkList.size() == 0 )
+		if( chunkList.size() == 0  || sb.toString().length() > 0)
 		{
 			chunkList.add(sb.toString());
 		}

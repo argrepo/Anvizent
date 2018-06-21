@@ -11,11 +11,11 @@ info:
   java:
     version: ${java.runtime.version}
 des:
-  home: ${des.home}
+  home: ${DES.HOME}
   metadata: ${des.home}/desDataSources.json
   containers : 5
 scheduling:
-  pendingTasksQueue: DES-Tasks-Unstructured 
+  pendingTasksQueue: DES-Tasks-Unstructured
   taskStatusQueue: DES-TaskStatus-Unstructured
 server:
   contextPath: /des
