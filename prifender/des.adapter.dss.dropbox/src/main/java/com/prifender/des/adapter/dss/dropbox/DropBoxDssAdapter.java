@@ -96,7 +96,7 @@ public class DropBoxDssAdapter extends DataSourceAdapter
 		}
 		catch ( Exception e )
 		{
-			e.printStackTrace();
+			 
 			return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
 		}
 
@@ -359,12 +359,6 @@ public class DropBoxDssAdapter extends DataSourceAdapter
 		{
 			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
-
-		if( objectsCount == 0 )
-		{
-			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message("No Files to process!!!!"));
-		}
-
 		synchronized (job)
 		{
 			job.setTasksCount(tasksCount);

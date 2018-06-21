@@ -1,30 +1,30 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    
-    <modelVersion>4.0.0</modelVersion>
-    
-    <groupId>des.prifender</groupId>
-    <artifactId>des.node</artifactId>
-    <name>Prifender Data Extraction Service Node</name>
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <parent>
-        <groupId>com.prifender</groupId>
-        <artifactId>prifender</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
-    </parent>
-    
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-            <version>${spring.boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commonslang3.version}</version>
-        </dependency>
-        <dependency>
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>des.prifender</groupId>
+	<artifactId>des.node</artifactId>
+	<name>Prifender Data Extraction Service Node</name>
+
+	<parent>
+		<groupId>com.prifender</groupId>
+		<artifactId>prifender</artifactId>
+		<version>1.1.0-SNAPSHOT</version>
+	</parent>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+			<version>${spring.boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>${commonslang3.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>com.prifender</groupId>
 			<artifactId>messaging.rabbitmq</artifactId>
 			<version>${prifender.version}</version>
@@ -46,52 +46,52 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-        
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>${jsonsimple.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish</groupId>
-            <artifactId>javax.json</artifactId>
-            <version>${glassfish.json.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>encryption.service.client.java</artifactId>
-            <version>${prifender.version}</version>
-            <exclusions>
-            <exclusion>
-             <groupId>org.springframework</groupId>
-             <artifactId>spring-context</artifactId>
-            </exclusion>
-            </exclusions>
-        </dependency>
-          <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger2</artifactId>
-            <version>${springfox.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger-ui</artifactId>
-            <version>${springfox.version}</version>
-        </dependency>
-         <dependency>
-            <groupId>com.prifender</groupId>
-            <artifactId>des.api</artifactId>
-            <version>${prifender.version}</version>
-            <type>zip</type>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-        </dependency>
-        
-        <!-- Google API LIB -->
-        <dependency>
+
+		<dependency>
+			<groupId>com.googlecode.json-simple</groupId>
+			<artifactId>json-simple</artifactId>
+			<version>${jsonsimple.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish</groupId>
+			<artifactId>javax.json</artifactId>
+			<version>${glassfish.json.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.prifender</groupId>
+			<artifactId>encryption.service.client.java</artifactId>
+			<version>${prifender.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework</groupId>
+					<artifactId>spring-context</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>io.springfox</groupId>
+			<artifactId>springfox-swagger2</artifactId>
+			<version>${springfox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.springfox</groupId>
+			<artifactId>springfox-swagger-ui</artifactId>
+			<version>${springfox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.prifender</groupId>
+			<artifactId>des.api</artifactId>
+			<version>${prifender.version}</version>
+			<type>zip</type>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>${gson.version}</version>
+		</dependency>
+
+		<!-- Google API LIB -->
+		<dependency>
 			<groupId>com.google.api-client</groupId>
 			<artifactId>google-api-client</artifactId>
 			<version>${google.api.client.version}</version>
@@ -106,21 +106,21 @@
 			<artifactId>google-oauth-client-jetty</artifactId>
 			<version>${google.api.client.version}</version>
 		</dependency>
-		
+
 		<!-- Box API LIB -->
 		<dependency>
 			<groupId>com.box</groupId>
 			<artifactId>box-java-sdk</artifactId>
 			<version>2.16.0</version>
 		</dependency>
-		
+
 		<!-- DropBox API LIB -->
 		<dependency>
 			<groupId>com.dropbox.core</groupId>
 			<artifactId>dropbox-core-sdk</artifactId>
 			<version>3.0.8</version>
 		</dependency>
-		
+
 		<!-- Apache Tika LIB -->
 		<dependency>
 			<groupId>org.apache.tika</groupId>
@@ -131,55 +131,61 @@
 			<groupId>org.apache.tika</groupId>
 			<artifactId>tika-parsers</artifactId>
 			<version>${tika.version}</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>cxf-rt-rs-client</artifactId>
+					<groupId>org.apache.cxf</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
-    </dependencies>
+	</dependencies>
 
-       <build>
+	<build>
 		<plugins>
 			<plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <phase>generate-sources</phase>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>com.prifender</groupId>
-                                    <artifactId>des.api</artifactId>
-                                    <type>zip</type>
-                                    <overWrite>true</overWrite>
-                                    <outputDirectory>target/des.api</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>io.swagger</groupId>
-                <artifactId>swagger-codegen-maven-plugin</artifactId>
-                <version>${swagger.codegen.version}</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <inputSpec>${project.basedir}/target/des.api/swagger.yaml</inputSpec>
-                            <language>spring</language>
-                            <apiPackage>com.prifender.des</apiPackage>
-                            <modelPackage>com.prifender.des.model</modelPackage>
-                            <configOptions>
-                                <interfaceOnly>true</interfaceOnly>
-                            </configOptions>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>unpack</goal>
+						</goals>
+						<phase>generate-sources</phase>
+						<configuration>
+							<artifactItems>
+								<artifactItem>
+									<groupId>com.prifender</groupId>
+									<artifactId>des.api</artifactId>
+									<type>zip</type>
+									<overWrite>true</overWrite>
+									<outputDirectory>target/des.api</outputDirectory>
+								</artifactItem>
+							</artifactItems>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.swagger</groupId>
+				<artifactId>swagger-codegen-maven-plugin</artifactId>
+				<version>${swagger.codegen.version}</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/target/des.api/swagger.yaml</inputSpec>
+							<language>spring</language>
+							<apiPackage>com.prifender.des</apiPackage>
+							<modelPackage>com.prifender.des.model</modelPackage>
+							<configOptions>
+								<interfaceOnly>true</interfaceOnly>
+							</configOptions>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

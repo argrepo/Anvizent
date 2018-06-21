@@ -352,12 +352,6 @@ public class BoxDssAdapter extends DataSourceAdapter
 		{
 			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
-
-		if( objectsCount == 0 )
-		{
-			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message("No Files to process!!!!"));
-		}
-
 		synchronized (job)
 		{
 			job.setTasksCount(tasksCount);

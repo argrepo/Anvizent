@@ -329,13 +329,8 @@ public class GoogleDriveDssAdapter extends DataSourceAdapter
 		}
 		catch ( Exception e )
 		{
-			e.printStackTrace();
+			 
 			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
-		}
-
-		if( objectsCount == 0 )
-		{
-			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message("No Files to process!!!!"));
 		}
 
 		synchronized (job)

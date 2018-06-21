@@ -133,8 +133,10 @@ public class DataExtractionServiceNode implements Runnable
 
 			ObjectMapper mapper = new ObjectMapper();
 
-			DataExtractionTask dataExtractionJobTask = mapper.readValue(msg, new TypeReference<DataExtractionTask>(){});
-			
+			DataExtractionTask dataExtractionJobTask = mapper.readValue(msg, new TypeReference<DataExtractionTask>()
+			{
+			});
+
 			if( dataExtractionJobTask != null )
 			{
 				processDocExtactionJob(dataExtractionJobTask, dataExtractionJobTask.getTypeId());
@@ -217,7 +219,6 @@ public class DataExtractionServiceNode implements Runnable
 		}
 		catch ( Exception e )
 		{
-			e.printStackTrace();
 			throw new Exception(e.getMessage());
 		}
 
@@ -283,6 +284,8 @@ public class DataExtractionServiceNode implements Runnable
 			{
 			});
 
+			dataExtractionJobTask.setContextParameters(decryptContextParams(dataExtractionJobTask.getContextParameters()));
+
 			if( dataExtractionJobTask != null )
 			{
 				int numberOfFailedAttempts = dataExtractionJobTask.getNumberOfFailedAttempts();
@@ -292,9 +295,7 @@ public class DataExtractionServiceNode implements Runnable
 					if( msg != null )
 					{
 
-						String[] dataExtractionJobTaskTokens = dataExtractionJobTask.getTypeId().split("__");
-
-						if( dataExtractionJobTaskTokens.length == 1 )
+						if( dataExtractionJobTask.getTypeId() != null )
 						{
 							postTaskToTaskStatusQueue(
 
@@ -311,29 +312,7 @@ public class DataExtractionServiceNode implements Runnable
 									taskStatusQueue
 
 							);
-							return;
 						}
-
-						dataExtractionJobTask.setContextParameters(decryptContextParams(dataExtractionJobTask.getContextParameters()));
-
-						postTaskToTaskStatusQueue(
-
-								new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
-
-										.jobId(dataExtractionJobTask.getJobId())
-
-										.offset(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("OFFSET")))
-
-										.limit(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("LIMIT")))
-
-										.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
-
-										.objectsExtracted(0)
-
-										.lastFailureMessage(lastFailureMessage),
-
-								taskStatusQueue);
-
 					}
 				}
 				else
