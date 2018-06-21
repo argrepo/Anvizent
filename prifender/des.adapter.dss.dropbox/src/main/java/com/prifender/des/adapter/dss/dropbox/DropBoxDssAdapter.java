@@ -48,54 +48,54 @@ import com.prifender.des.model.Problem;
 import com.prifender.des.model.Type;
 
 @Component
-public class DropBoxDssAdapter extends DataSourceAdapter {
+public class DropBoxDssAdapter extends DataSourceAdapter
+{
 
-	@Value( "${des.home}")
+	@Value("${des.home}")
 	private String desHome;
 
-	private static final int  MAX_FILES_THRESHOLD = 10;		
+	private static final int MAX_FILES_THRESHOLD = 10;
 
-	public static final String TYPE_ID = "DropBox";
-	public static final String TYPE_LABEL = "DropBox";
+	public static final String TYPE_ID = "Dropbox";
+	public static final String TYPE_LABEL = "Dropbox";
 
 	// DropBox API Token
 	public static final String PARAM_ACCESS_TOKEN_ID = "AccessToken";
-	public static final String PARAM_ACCESS_TOKEN_LABEL = "AccessToken";
+	public static final String PARAM_ACCESS_TOKEN_LABEL = "Access Token";
 	public static final String PARAM_ACCESS_TOKEN_DESCRIPTION = "AccessToken, which is required for authorization";
 
-	public static final ConnectionParamDef PARAM_ACCESS_TOKEN
-	= new ConnectionParamDef().id( PARAM_ACCESS_TOKEN_ID ).label( PARAM_ACCESS_TOKEN_LABEL ).description( PARAM_ACCESS_TOKEN_DESCRIPTION ).type( TypeEnum.STRING );
+	public static final ConnectionParamDef PARAM_ACCESS_TOKEN = new ConnectionParamDef().id(PARAM_ACCESS_TOKEN_ID).label(PARAM_ACCESS_TOKEN_LABEL).description(PARAM_ACCESS_TOKEN_DESCRIPTION).type(TypeEnum.STRING);
 
-	private static final DataSourceType TYPE = new DataSourceType()
-			.id( TYPE_ID ).label( TYPE_LABEL )
-			.addConnectionParamsItem( PARAM_USER )
-			.addConnectionParamsItem( PARAM_ACCESS_TOKEN );
+	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label(TYPE_LABEL).addConnectionParamsItem(PARAM_USER).addConnectionParamsItem(PARAM_ACCESS_TOKEN);
 
 	@Override
-	public DataSourceType getDataSourceType() 
+	public DataSourceType getDataSourceType()
 	{
 		return TYPE;
 	}
 
 	@Override
-	public ConnectionStatus testConnection(DataSource ds) throws DataExtractionServiceException 
+	public ConnectionStatus testConnection(DataSource ds) throws DataExtractionServiceException
 	{
 		DbxTeamClientV2 teamClient = null;
 
-		try {
+		try
+		{
 			teamClient = getConnection(ds);
-			if (teamClient != null) 
+			if( teamClient != null )
 			{
 				final String userName = getConnectionParam(ds, PARAM_USER_ID);
 
 				String memberId = getMemberId(teamClient, userName);
-				
-				if(null != memberId) 
+
+				if( null != memberId )
 				{
-					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("DropBox Authorization Successful.");						
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("DropBox Authorization Successful.");
 				}
 			}
-		} catch (Exception e) {
+		}
+		catch ( Exception e )
+		{
 			e.printStackTrace();
 			return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
 		}
@@ -107,35 +107,31 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 	{
 		final String accessToken = getConnectionParam(ds, PARAM_ACCESS_TOKEN_ID);
 		DbxRequestConfig config = new DbxRequestConfig("Prefinder-Demo");
-
-		DbxTeamClientV2 client = new DbxTeamClientV2(config, accessToken);
-		return client;
+		return new DbxTeamClientV2(config, accessToken);
 	}
 
-	private String getMemberId(DbxTeamClientV2 teamClient, String accountName) throws DbxApiException, DbxException 
+	private String getMemberId(DbxTeamClientV2 teamClient, String accountName) throws DbxApiException, DbxException
 	{
 		GroupsListResult groups = teamClient.team().groupsList();
-		List<GroupSummary> groupInfo =  groups.getGroups();
+		List<GroupSummary> groupInfo = groups.getGroups();
 
-		List<String> groupIds = new ArrayList<>(); 
-		for(GroupSummary groupSummary: groupInfo) 
+		List<String> groupIds = new ArrayList<>();
+		for (GroupSummary groupSummary : groupInfo)
 		{
 			groupIds.add(groupSummary.getGroupId());
 		}
 
-		for(String groupId: groupIds) 
+		for (String groupId : groupIds)
 		{
 			GroupSelector selector = GroupSelector.groupId(groupId);
 			GroupsMembersListResult groupMems = teamClient.team().groupsMembersList(selector);
 
 			List<GroupMemberInfo> memberInfoList = groupMems.getMembers();
-			for(GroupMemberInfo memberInfo : memberInfoList) 
+			for (GroupMemberInfo memberInfo : memberInfoList)
 			{
 				MemberProfile memberProfile = memberInfo.getProfile();
-				if(accountName.equals(memberProfile.getEmail())) 
+				if( accountName.equals(memberProfile.getEmail()) )
 				{
-					//DbxClientV2 userClient = teamClient.asMember(memberProfile.getTeamMemberId());
-					//BasicAccount userAccount = client.users().getAccount(memberProfile.getAccountId());
 					return memberProfile.getTeamMemberId();
 				}
 			}
@@ -148,20 +144,19 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 		DbxClientV2 userClient = teamClient.asMember(memberId);
 		return userClient;
 	}
-	
+
 	@Override
-	public Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException 
+	public Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException
 	{
 		Metadata metadata = null;
 
-		try {
+		try
+		{
 			metadata = getDSSMetadata(ds);
-			if (metadata == null) 
-			{
-				throw new DataExtractionServiceException(new Problem().code("metadata error").message("meta data not found for connection."));
-			}
-		} catch (IOException e) {
-			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
+		}
+		catch ( IOException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
 		}
 		return metadata;
 	}
@@ -222,60 +217,52 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 	public Map<String, Object> getFilesInfoMap(final DataSource ds) throws DataExtractionServiceException
 	{
 		Map<String, Object> infoMap = new HashMap<>();
-		
+
 		List<FileMetaInfo> filesInfoList = new ArrayList<>();
 		try
 		{
-			String[] fileTypes = new String[] {
-					"doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "txt", "rtf", "pdf"	
-			};
+			String[] fileTypes = new String[] { "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "txt", "rtf", "pdf" };
 
 			List<String> reqDocTypeList = new ArrayList<String>(Arrays.asList(fileTypes));
 
 			DbxTeamClientV2 teamClient = getConnection(ds);
-			if (teamClient != null) 
+			if( teamClient != null )
 			{
 				final String userName = getConnectionParam(ds, PARAM_USER_ID);
 
 				String memberId = getMemberId(teamClient, userName);
 				infoMap.put("memberId", memberId);
-				DbxClientV2 userClient =  getUserAccount(teamClient, memberId);
+				DbxClientV2 userClient = getUserAccount(teamClient, memberId);
 
-				if(null != userClient) 
+				if( null != userClient )
 				{
 					ListFolderBuilder listFolderBuilder = userClient.files().listFolderBuilder("");
 					ListFolderResult result = listFolderBuilder.withRecursive(true).start();
-
-					//ListFolderResult result = userClient.files().listFolder("");
-					while (true) {
-						for (com.dropbox.core.v2.files.Metadata metadata : result.getEntries()) 
+ 
+					while (true)
+					{
+						for (com.dropbox.core.v2.files.Metadata metadata : result.getEntries())
 						{
-							if (metadata instanceof FileMetadata) {
+							if( metadata instanceof FileMetadata )
+							{
 
-								//String filePath = metadata.getPathLower().replace(metadata.getName().toLowerCase(), "");
-								
 								String fileExtension = "";
 
-								if(null != metadata && null != metadata.getName()) 
+								if( null != metadata && null != metadata.getName() )
 								{
 									fileExtension = metadata.getName().substring(metadata.getName().lastIndexOf(".") + 1);
 								}
 
-								if( null != metadata && reqDocTypeList.contains(fileExtension))
+								if( null != metadata && reqDocTypeList.contains(fileExtension) )
 								{
-									FileMetaInfo fileMetaInfo = new FileMetaInfo()
-											.fileId(((FileMetadata) metadata).getId())
-											.fileName(metadata.getName())
-											.filePath(metadata.getPathDisplay())
-											.fileExtension(fileExtension)
-											.fileSize((int) ((FileMetadata) metadata).getSize())
+									FileMetaInfo fileMetaInfo = new FileMetaInfo().fileId(((FileMetadata) metadata).getId()).fileName(metadata.getName()).filePath(metadata.getPathDisplay()).fileExtension(fileExtension).fileSize((int) ((FileMetadata) metadata).getSize())
 											.fileType(fileExtension.toUpperCase());
 
 									filesInfoList.add(fileMetaInfo);
 								}
 							}
 						}
-						if(!result.getHasMore())
+						if( !result.getHasMore() )
 						{
 							break;
 						}
@@ -284,21 +271,20 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 				}
 			}
 		}
-		catch (DbxException e)
+		catch ( DbxException e )
 		{
-			e.printStackTrace();
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
-		}       
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
 		infoMap.put("filesInfoList", filesInfoList);
 		return infoMap;
 	}
 
 	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec, final int containersCount)
-			throws DataExtractionServiceException 
+	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec, final int containersCount) throws DataExtractionServiceException
 	{
 		StartResult startResult = null;
-		try {
+		try
+		{
 			final String userName = getConnectionParam(ds, PARAM_USER_ID);
 			DataExtractionJob job = new DataExtractionJob()
 
@@ -308,9 +294,9 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 
 			startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, containersCount));
 		}
-		catch (Exception exe) 
+		catch ( Exception exe )
 		{
-			throw new DataExtractionServiceException(new Problem().code("job error").message(exe.getMessage()));
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(exe.getMessage()));
 
 		}
 		return startResult;
@@ -318,7 +304,8 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 
 	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec,
 
-			DataExtractionJob job, int containersCount) throws DataExtractionServiceException {
+			DataExtractionJob job, int containersCount) throws DataExtractionServiceException
+	{
 
 		List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
 
@@ -327,7 +314,8 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 
 		try
 		{
-			synchronized (job) {
+			synchronized (job)
+			{
 
 				job.setOutputMessagingQueue("DES-" + job.getId());
 
@@ -343,39 +331,42 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 			String memberId = (String) infoMap.get("memberId");
 			@SuppressWarnings("unchecked")
 			List<FileMetaInfo> filesInfoList = (List<FileMetaInfo>) infoMap.get("filesInfoList");
-			
+
 			objectsCount = filesInfoList.size();
 
-			for(int i = 0; i < filesInfoList.size(); i+=10) 
+			for (int i = 0; i < filesInfoList.size(); i += 10)
 			{
 				List<FileMetaInfo> tmpFilesInfoList = new ArrayList<>(MAX_FILES_THRESHOLD);
 				int start = i;
-				int end = (i+10);
-				
-				if(start >= objectsCount) {
+				int end = (i + 10);
+
+				if( start >= objectsCount )
+				{
 					start = objectsCount;
 				}
-				if(end > objectsCount) {
+				if( end > objectsCount )
+				{
 					end = objectsCount;
 				}
-				
+
 				tmpFilesInfoList = filesInfoList.subList(start, end);
 
-				dataExtractionJobTasks.add(getDataExtractionTask( ds, spec, job, memberId, tmpFilesInfoList));
+				dataExtractionJobTasks.add(getDataExtractionTask(ds, spec, job, memberId, tmpFilesInfoList));
 				tasksCount++;
 			}
-		} catch (Exception e )
-		{
-			e.printStackTrace();
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
 		}
-		
-		if(objectsCount == 0)
+		catch ( Exception e )
 		{
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( "No Files to process!!!!" ) );
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
-		
-		synchronized (job) {
+
+		if( objectsCount == 0 )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message("No Files to process!!!!"));
+		}
+
+		synchronized (job)
+		{
 			job.setTasksCount(tasksCount);
 			job.setObjectCount(objectsCount);
 		}
@@ -407,46 +398,47 @@ public class DropBoxDssAdapter extends DataSourceAdapter {
 			final String userName = getConnectionParam(ds, PARAM_USER_ID);
 			final String accessToken = getConnectionParam(ds, PARAM_ACCESS_TOKEN_ID);
 
-			Map< String , String > contextParams = getContextParams(job.getOutputMessagingQueue(), userName, memberId, accessToken, filesInfoList, spec.getScope().name(), String.valueOf(spec.getSampleSize()));
+			Map<String, String> contextParams = getContextParams(job.getOutputMessagingQueue(), userName, memberId, accessToken, filesInfoList, spec.getScope().name(), String.valueOf(spec.getSampleSize()));
 
-			dataExtractionTask.taskId("DES-Task-" + getUUID( ))
+			dataExtractionTask.taskId("DES-Task-" + getUUID())
 
-			.jobId( job.getId( ) )
+					.jobId(job.getId())
 
-			.typeId( TYPE_ID )
+					.typeId(TYPE_ID)
 
-			.contextParameters( contextParams )
+					.contextParameters(contextParams)
 
-			.numberOfFailedAttempts( 0 );
+					.numberOfFailedAttempts(0);
 		}
-		catch(Exception e)
+		catch ( Exception e )
 		{
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
 		return dataExtractionTask;
 	}
 
-	private Map<String, String> getContextParams(String jobId, String userName, String memberId, String accessToken,
-			List<FileMetaInfo> filesInfoList, final String extractionScope, final String sampleSize) throws IOException {
+	private Map<String, String> getContextParams(String jobId, String userName, String memberId, String accessToken, List<FileMetaInfo> filesInfoList, final String extractionScope, final String sampleSize) throws IOException
+	{
 
 		ObjectMapper mapperObj = new ObjectMapper();
+		
 		String filesInfo = mapperObj.writeValueAsString(filesInfoList);
 
-		Map< String , String > ilParamsVals = new LinkedHashMap<>( );
+		Map<String, String> ilParamsVals = new LinkedHashMap<>();
 
-		ilParamsVals.put( "JOB_STARTDATETIME" ,  getConvertedDate( new Date( ) ) );
+		ilParamsVals.put("JOB_STARTDATETIME", getConvertedDate(new Date()));
 
-		ilParamsVals.put( "USER_NAME" , userName );
-		
-		ilParamsVals.put( "MEMBER_ID" , memberId );
+		ilParamsVals.put("USER_NAME", userName);
 
-		ilParamsVals.put( "ACCESS_TOKEN" , accessToken );
+		ilParamsVals.put("MEMBER_ID", memberId);
 
-		ilParamsVals.put( "FILES_INFO" , filesInfo );
+		ilParamsVals.put("ACCESS_TOKEN", accessToken);
 
-		ilParamsVals.put( "SCOPE" , extractionScope );
+		ilParamsVals.put("FILES_INFO", filesInfo);
 
-		ilParamsVals.put( "SAMPLESIZE" , sampleSize );
+		ilParamsVals.put("SCOPE", extractionScope);
+
+		ilParamsVals.put("SAMPLESIZE", sampleSize);
 
 		return ilParamsVals;
 
