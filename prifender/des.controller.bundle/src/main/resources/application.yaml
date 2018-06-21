@@ -11,12 +11,12 @@ info:
   java:
     version: ${java.runtime.version}
 des:
-  home: ../des.jobs/target/jobs
+  home: ${des.home}
   metadata: ${des.home}/desDataSources.json
   containers : 5
 scheduling:
-  pendingTasksQueue: DES-Tasks-Development 
-  taskStatusQueue: DES-TaskStatus-Development
+  pendingTasksQueue: DES-Tasks-Unstructured 
+  taskStatusQueue: DES-TaskStatus-Unstructured
 server:
   contextPath: /des
   port: ${DES_PORT:8080}
