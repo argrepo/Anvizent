@@ -46,19 +46,19 @@ import com.prifender.messaging.api.MessagingConnection;
 import com.prifender.messaging.api.MessagingConnectionFactory;
 import com.prifender.messaging.api.MessagingQueue;
 
-@Component( "dataExtractionService" )
+@Component("dataExtractionService")
 public final class DataExtractionServiceImpl extends DataExtractionService
 {
-	@Value( "${des.home}" )
+	@Value("${des.home}")
 	private String desHome;
 
-	@Value( "${des.metadata}" )
+	@Value("${des.metadata}")
 	private String desMetadataFile;
 
-	@Value( "${scheduling.pendingTasksQueue}" )
+	@Value("${scheduling.pendingTasksQueue}")
 	private String pendingTasksQueueName;
 
-	@Value( "${des.containers}" )
+	@Value("${des.containers}")
 	private int containersCount;
 
 	private MessagingQueue pendingTasksQueue;
@@ -77,90 +77,89 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 
 	protected static final DateFormat DATE_FORMAT = DateFormat.getTimeInstance(DateFormat.DEFAULT);
 
-	private final Map<DataExtractionJob,List<DataExtractionTask>> jobToTasksMap = new IdentityHashMap<>();
+	private final Map<DataExtractionJob, List<DataExtractionTask>> jobToTasksMap = new IdentityHashMap<>();
 
 	@Override
 	public List<DataSourceType> getSupportedDataSourceTypes()
 	{
-		final List<DataSourceType> types = new ArrayList<DataSourceType>( this.adapters.size() );
+		final List<DataSourceType> types = new ArrayList<DataSourceType>(this.adapters.size());
 
-		this.adapters.forEach( adapter -> types.add( adapter.getDataSourceType() ) );
+		this.adapters.forEach(adapter -> types.add(adapter.getDataSourceType()));
 
 		return types;
 	}
 
-	private DataSourceAdapter getAdapter( final String type )
+	private DataSourceAdapter getAdapter(final String type)
 	{
-		return this.adapters.stream()
-				.filter( adapter -> adapter.getDataSourceType().getId().equals( type ) )
-				.findFirst()
-				.get();
+		return this.adapters.stream().filter(adapter -> adapter.getDataSourceType().getId().equals(type)).findFirst().get();
 	}
 
 	@Override
-	protected ConnectionStatus testConnection( final DataSource ds ) throws DataExtractionServiceException
+	protected ConnectionStatus testConnection(final DataSource ds) throws DataExtractionServiceException
 	{
-		return getAdapter( ds.getType() ).testConnection( ds );
+		return getAdapter(ds.getType()).testConnection(ds);
 	}
 
 	@Override
-	protected Metadata getMetadata( final DataSource ds ) throws DataExtractionServiceException
+	protected Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException
 	{
-		return getAdapter( ds.getType() ).getMetadata( ds );
+		return getAdapter(ds.getType()).getMetadata(ds);
 	}
 
 	@Override
-	protected synchronized DataExtractionJob startDataExtractionJob( final DataSource ds, final DataExtractionSpec spec ) throws DataExtractionServiceException
+	protected synchronized DataExtractionJob startDataExtractionJob(final DataSource ds, final DataExtractionSpec spec) throws DataExtractionServiceException
 	{
-		final DataSourceAdapter adapter = getAdapter( ds.getType() );
+		final DataSourceAdapter adapter = getAdapter(ds.getType());
 
-		final StartResult result = adapter.startDataExtractionJob( ds, spec , containersCount);
+		final StartResult result = adapter.startDataExtractionJob(ds, spec, containersCount);
 
-		if(result.job.getObjectCount() == 0 && result.dataExtractionTasks  == null)
+		if( result.job.getObjectCount() == 0 && result.dataExtractionTasks.isEmpty() )
 		{
-			createOutputMessagingQueue( ds,result.job,spec );	
+			createOutputMessagingQueue(ds, result.job, spec);
 		}
 		else
 		{
 			postTasksToPendingTasksQueue(result.dataExtractionTasks);
 		}
-		this.jobToTasksMap.put( result.job, result.dataExtractionTasks);
+		this.jobToTasksMap.put(result.job, result.dataExtractionTasks);
 
 		return result.job;
 	}
-	
-	private void createOutputMessagingQueue( final DataSource ds, final DataExtractionJob job, final DataExtractionSpec spec ) throws DataExtractionServiceException
+
+	private void createOutputMessagingQueue(final DataSource ds, final DataExtractionJob job, final DataExtractionSpec spec) throws DataExtractionServiceException
 	{
-		try(MessagingConnection mc = this.messaging.connect( ))
+		try ( MessagingConnection mc = this.messaging.connect())
 		{
 			mc.queue(job.getOutputMessagingQueue());
 
-			synchronized (job) 
+			synchronized (job)
 			{
 				job.setState(DataExtractionJob.StateEnum.SUCCEEDED);
-				job.setTimeCompleted(DateFormat.getTimeInstance( DateFormat.DEFAULT ).format(new Date()));
+				job.setTimeStarted(DateFormat.getTimeInstance(DateFormat.DEFAULT).format(new Date()));
+				job.setTimeCompleted(DateFormat.getTimeInstance(DateFormat.DEFAULT).format(new Date()));
 				job.setObjectsExtracted(0);
 			}
 		}
-		catch( Exception e )
+		catch ( Exception e )
 		{
 			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
-		} 
+		}
 	}
 
 	@Override
-	protected synchronized void deleteDataExtractionJob( final DataExtractionJob job ) throws DataExtractionServiceException
+	protected synchronized void deleteDataExtractionJob(final DataExtractionJob job) throws DataExtractionServiceException
 	{
 		if( job != null )
 		{
-			this.jobToTasksMap.remove( job );
+			this.jobToTasksMap.remove(job);
 		}
 	}
-	public static boolean isValidTable( Metadata metadata,final String tableName )
+
+	public static boolean isValidTable(Metadata metadata, final String tableName)
 	{
-		for( final NamedType table : metadata.getObjects() )
+		for (final NamedType table : metadata.getObjects())
 		{
-			if( table.getName().equals( tableName ) )
+			if( table.getName().equals(tableName) )
 			{
 				return true;
 			}
@@ -169,17 +168,17 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 		return false;
 	}
 
-	public static boolean isValidColumn(Metadata metadata, final String tableName, final String columnName )
+	public static boolean isValidColumn(Metadata metadata, final String tableName, final String columnName)
 	{
-		for( final NamedType table : metadata.getObjects() )
+		for (final NamedType table : metadata.getObjects())
 		{
-			if( table.getName().equals( tableName ) )
+			if( table.getName().equals(tableName) )
 			{
 				final Type entryType = table.getType().getEntryType();
 
-				for( final NamedType column : entryType.getAttributes() )
+				for (final NamedType column : entryType.getAttributes())
 				{
-					if( column.getName().equals( columnName ) )
+					if( column.getName().equals(columnName) )
 					{
 						return true;
 					}
@@ -194,38 +193,36 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 	protected List<DataSource> loadDataSources()
 	{
 		final List<DataSource> dataSources = new ArrayList<>();
-		final File metadataFile = new File( this.desMetadataFile );
+		final File metadataFile = new File(this.desMetadataFile);
 
 		if( metadataFile.exists() )
 		{
-			try( final Reader reader = new FileReader( metadataFile ) )
+			try ( final Reader reader = new FileReader(metadataFile))
 			{
-				final JsonArray jsonArray = (JsonArray) new JsonParser().parse( reader );
+				final JsonArray jsonArray = (JsonArray) new JsonParser().parse(reader);
 
-				for( final JsonElement entry : jsonArray )
+				for (final JsonElement entry : jsonArray)
 				{
 					final JsonObject jsonObject = (JsonObject) entry;
 
-					final DataSource ds = new DataSource()
-							.id( jsonObject.get( "id" ).getAsString() )
-							.label( jsonObject.get( "label" ).getAsString() )
-							.type( jsonObject.get( "type" ).getAsString() );
+					final DataSource ds = new DataSource().id(jsonObject.get("id").getAsString()).label(jsonObject.get("label").getAsString()).type(jsonObject.get("type").getAsString());
 
-					final JsonElement description = jsonObject.get( "description" );
+					final JsonElement description = jsonObject.get("description");
 
 					if( description != null )
 					{
-						ds.description( description.getAsString() );
+						ds.description(description.getAsString());
 					}
 
-					decryptConnectionParams( jsonObject.get( "connectionParams" ).getAsString(), ds );
+					decryptConnectionParams(jsonObject.get("connectionParams").getAsString(), ds);
 
-					dataSources.add( ds );
+					dataSources.add(ds);
 				}
 			}
-			catch( final Exception e )
+			catch ( final Exception e )
 			{
-				// If couldn't read the metadata or it was malformed, log error and continue
+				// If couldn't read the metadata or it was malformed, log error
+				// and continue
 
 				e.printStackTrace();
 			}
@@ -236,95 +233,96 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 
 	private void saveDataSources()
 	{
-		try( final JsonWriter writer = new JsonWriter( new FileWriter( this.desMetadataFile ) ) )
+		try ( final JsonWriter writer = new JsonWriter(new FileWriter(this.desMetadataFile)))
 		{
-			writer.setIndent( "    " );
-			writer.setSerializeNulls( false );
+			writer.setIndent("    ");
+			writer.setSerializeNulls(false);
 			writer.beginArray();
 
-			for( final DataSource ds : getDataSources() )
+			for (final DataSource ds : getDataSources())
 			{
 				writer.beginObject();
 
-				writer.name( "id" ).value( ds.getId() );
-				writer.name( "label" ).value( ds.getLabel() );
-				writer.name( "type" ).value( ds.getType() );
-				writer.name( "description" ).value( ds.getDescription() );
-				writer.name( "connectionParams" ).value( encryptConnectionParams( ds.getConnectionParams() ) );
+				writer.name("id").value(ds.getId());
+				writer.name("label").value(ds.getLabel());
+				writer.name("type").value(ds.getType());
+				writer.name("description").value(ds.getDescription());
+				writer.name("connectionParams").value(encryptConnectionParams(ds.getConnectionParams()));
 
 				writer.endObject();
 			}
 
 			writer.endArray();
 		}
-		catch( final Exception e )
+		catch ( final Exception e )
 		{
 			e.printStackTrace();
 		}
 	}
 
-	private String encryptConnectionParams( final List<ConnectionParam> params ) throws Exception
+	private String encryptConnectionParams(final List<ConnectionParam> params) throws Exception
 	{
 		final StringWriter sw = new StringWriter();
 
-		try( final JsonWriter writer = new JsonWriter( sw ) )
+		try ( final JsonWriter writer = new JsonWriter(sw))
 		{
 			writer.beginObject();
 
-			for( final ConnectionParam param : params )
+			for (final ConnectionParam param : params)
 			{
-				writer.name( param.getId() );
-				writer.value( param.getValue() );
+				writer.name(param.getId());
+				writer.value(param.getValue());
 			}
 
 			writer.endObject();
 		}
 
-		return this.encryption.encrypt( sw.toString() );
+		return this.encryption.encrypt(sw.toString());
 	}
 
-	private void decryptConnectionParams( final String encrypted, final DataSource ds ) throws Exception
+	private void decryptConnectionParams(final String encrypted, final DataSource ds) throws Exception
 	{
-		final String decrypted = this.encryption.decrypt( encrypted );
-		final JsonObject connectionParamsParsed = (JsonObject) new JsonParser().parse( new StringReader( decrypted ) );
+		final String decrypted = this.encryption.decrypt(encrypted);
+		final JsonObject connectionParamsParsed = (JsonObject) new JsonParser().parse(new StringReader(decrypted));
 
-		for( final Map.Entry<String,JsonElement> param : connectionParamsParsed.entrySet() )
+		for (final Map.Entry<String, JsonElement> param : connectionParamsParsed.entrySet())
 		{
-			ds.addConnectionParamsItem( new ConnectionParam().id( param.getKey() ).value( param.getValue().getAsString() ) );
+			ds.addConnectionParamsItem(new ConnectionParam().id(param.getKey()).value(param.getValue().getAsString()));
 		}
 	}
 
 	@Override
-	public synchronized DataSource addDataSource( final DataSource ds ) throws DataExtractionServiceException
+	public synchronized DataSource addDataSource(final DataSource ds) throws DataExtractionServiceException
 	{
-		final DataSource result = super.addDataSource( ds );
+		final DataSource result = super.addDataSource(ds);
 		saveDataSources();
 		return result;
 	}
 
 	@Override
-	public synchronized void updateDataSource( final String id, final DataSource ds ) throws DataExtractionServiceException
+	public synchronized void updateDataSource(final String id, final DataSource ds) throws DataExtractionServiceException
 	{
-		super.updateDataSource( id, ds );
+		super.updateDataSource(id, ds);
 		saveDataSources();
 	}
 
 	@Override
-	public synchronized void deleteDataSource( final String id )
+	public synchronized void deleteDataSource(final String id)
 	{
-		super.deleteDataSource( id );
+		super.deleteDataSource(id);
 		saveDataSources();
 	}
 
-
 	@Override
-	public synchronized List<DataExtractionJob> getDataExtractionJobs() {
+	public synchronized List<DataExtractionJob> getDataExtractionJobs()
+	{
 
 		List<DataExtractionJob> dataExtractionJobList = new ArrayList<DataExtractionJob>();
 
-		List<DataExtractionJob> dataExtractionJobs =  super.getDataExtractionJobs();
+		List<DataExtractionJob> dataExtractionJobs = super.getDataExtractionJobs();
 
-		for(DataExtractionJob dataExtractionJob : dataExtractionJobs){
+		for (DataExtractionJob dataExtractionJob : dataExtractionJobs)
+		{
 
 			dataExtractionJobList.add(getDataExtractionJob(dataExtractionJob.getId()));
 		}
@@ -336,95 +334,110 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 	public synchronized DataExtractionJob getDataExtractionJob(String id)
 	{
 
-		DataExtractionJob  dataExtractionJob = super.getDataExtractionJob( id );
+		DataExtractionJob dataExtractionJob = super.getDataExtractionJob(id);
 
-		List< DataExtractionTaskResults > dataExtractionTaskResults = workQueueMonitoring.getDataExtractionTaskResults( dataExtractionJob );
+		List<DataExtractionTaskResults> dataExtractionTaskResults = workQueueMonitoring.getDataExtractionTaskResults(dataExtractionJob);
 
-		if ( dataExtractionTaskResults.size( ) > 0 )
+		if( dataExtractionTaskResults.size() > 0 )
 		{
-			int chunksCount = dataExtractionTaskResults.size( );
+			int chunksCount = dataExtractionTaskResults.size();
 
-			int objectsExtracted = 0 ,failureMessageCount = 0, count = 1;
+			int objectsExtracted = 0, failureMessageCount = 0, count = 1;
 
-			String timeStarted = null , timeCompleted = null , lastFailureMessage=null;
+			String timeStarted = null, timeCompleted = null, lastFailureMessage = null;
 
-			List< DataExtractionTaskResults > dataExtractionChunks = new ArrayList< DataExtractionTaskResults >( );
+			List<DataExtractionTaskResults> dataExtractionChunks = new ArrayList<DataExtractionTaskResults>();
 
-			for ( DataExtractionTaskResults dataExtractionChunk : dataExtractionTaskResults )
+			for (DataExtractionTaskResults dataExtractionChunk : dataExtractionTaskResults)
 			{
-				if ( dataExtractionChunk.getJobId( ).equals( dataExtractionJob.getId( ) ) )
+				if( dataExtractionChunk.getJobId().equals(dataExtractionJob.getId()) )
 				{
-					if ( count == 1 )
+					if( count == 1 )
 
-						timeStarted = dataExtractionChunk.getTimeStarted( );
+						timeStarted = dataExtractionChunk.getTimeStarted();
 
-					if ( count == chunksCount )
+					if( count == chunksCount )
 
-						timeCompleted = dataExtractionChunk.getTimeCompleted( );
+						timeCompleted = dataExtractionChunk.getTimeCompleted();
 
-					dataExtractionChunks.add( dataExtractionChunk );
+					dataExtractionChunks.add(dataExtractionChunk);
 
-					objectsExtracted +=  dataExtractionChunk.getObjectsExtracted( ) ;
+					objectsExtracted += dataExtractionChunk.getObjectsExtracted();
 
-					lastFailureMessage = dataExtractionChunk.getLastFailureMessage( );
+					lastFailureMessage = dataExtractionChunk.getLastFailureMessage();
 
-					if ( lastFailureMessage != null )
+					if( lastFailureMessage != null )
 					{
-						failureMessageCount++ ;
+						failureMessageCount++;
 					}
 
-					count++ ;
+					count++;
 				}
 			}
-			dataExtractionJob.setObjectsExtracted( objectsExtracted );
+			dataExtractionJob.setObjectsExtracted(objectsExtracted);
 
-			if ( failureMessageCount > 0 )
+			if( failureMessageCount > 0 )
 			{
-				dataExtractionJob.setState( StateEnum.FAILED );
+				dataExtractionJob.setState(StateEnum.FAILED);
 
-			} else
+			}
+			else
 			{
-				if ( dataExtractionJob.getTasksCount( ) == chunksCount )
+				if( dataExtractionJob.getTasksCount() == chunksCount )
 				{
-					dataExtractionJob.setState( StateEnum.SUCCEEDED );
+					if( timeCompleted != null )
+					{
+
+						dataExtractionJob.setState(StateEnum.SUCCEEDED);
+
+					}
+					else
+					{
+
+						dataExtractionJob.setState(StateEnum.RUNNING);
+
+					}
 				}
 				else
 				{
-					dataExtractionJob.setState( StateEnum.RUNNING );
+					dataExtractionJob.setState(StateEnum.RUNNING);
 				}
 			}
-			dataExtractionJob.setTimeStarted( timeStarted );
+			dataExtractionJob.setTimeStarted(timeStarted);
 
-			dataExtractionJob.setTimeCompleted( timeCompleted );
+			dataExtractionJob.setTimeCompleted(timeCompleted);
 
-			dataExtractionJob.setDataExtractionTasks( dataExtractionChunks );
+			dataExtractionJob.setDataExtractionTasks(dataExtractionChunks);
 		}
 		return dataExtractionJob;
-	} 
+	}
+
 	private void postTasksToPendingTasksQueue(List<DataExtractionTask> dataExtractionTasks) throws DataExtractionServiceException
 	{
 
-		try(MessagingConnection mc = messaging.connect( ))
+		try ( MessagingConnection mc = messaging.connect())
 		{
 
 			this.pendingTasksQueue = mc.queue(this.pendingTasksQueueName);
 
-			for(DataExtractionTask dataExtractionTask : dataExtractionTasks){
+			for (DataExtractionTask dataExtractionTask : dataExtractionTasks)
+			{
 
-				dataExtractionTask.setContextParameters(encryptContextParams( dataExtractionTask.getContextParameters() ));
+				dataExtractionTask.setContextParameters(encryptContextParams(dataExtractionTask.getContextParameters()));
 
 				postPendingTask(dataExtractionTask, pendingTasksQueue);
 
 			}
 		}
-		catch( Exception  e ){
+		catch ( Exception e )
+		{
 
 			throw new DataExtractionServiceException(new Problem().code("schedule queue error").message(e.getMessage()));
 
-		} 
+		}
 	}
 
-	private  void postPendingTask(final DataExtractionTask dataExtractionJobTask, final MessagingQueue queue) throws IOException
+	private void postPendingTask(final DataExtractionTask dataExtractionJobTask, final MessagingQueue queue) throws IOException
 	{
 		Gson gsonObj = new Gson();
 
@@ -434,29 +447,29 @@ public final class DataExtractionServiceImpl extends DataExtractionService
 
 	}
 
-	private Map<String,String> encryptContextParams( final Map<String , String > contextParams ) throws Exception
+	private Map<String, String> encryptContextParams(final Map<String, String> contextParams) throws Exception
 	{
 		final Map<String, String> contextParmas = new HashMap<String, String>();
 
 		StringWriter sw = new StringWriter();
 
-		try (final JsonWriter writer = new JsonWriter(sw)) 
+		try ( final JsonWriter writer = new JsonWriter(sw))
 		{
 			writer.setIndent("    ");
 			writer.setSerializeNulls(false);
 			writer.beginArray();
 
-			contextParams.entrySet().forEach(entry -> 
+			contextParams.entrySet().forEach(entry ->
 			{
-				try 
+				try
 				{
 					writer.beginObject();
 					writer.name(entry.getKey());
 					writer.value(entry.getValue());
 					writer.endObject();
-				} 
+				}
 
-				catch (Exception e) 
+				catch ( Exception e )
 				{
 					throw new RuntimeException(e);
 				}
