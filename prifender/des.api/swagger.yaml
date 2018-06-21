@@ -683,10 +683,69 @@ definitions:
         description: The context parameters for etl job
         additionalProperties:
           type: string
-          type: string
       numberOfFailedAttempts:
           type: integer
           description: The number of failed attempts when chunk is in the failed state  
       lastFailureMessage:
          type: string
          description: The error message if the chunk is in the failed state
+  FileMetaInfo:
+    type: object
+    required:
+      - fileId
+      - fileName
+      - filePath
+      - fileType
+      - fileSize
+      - fileExtension
+      - fileDownloadLink
+    properties:
+      fileId:
+        type: string
+        description: The unique id which identifies the file
+      fileName:
+        type: string
+        description: The name of file
+      filePath:
+        type: string
+        description: The path of file
+      fileType:
+        type: string
+        description: The type of file  
+      fileSize:
+        type: integer
+        description: The size of file
+      fileExtension:
+        type: string
+        description: The size of file
+      fileDownloadLink:
+        type: string
+        description: The download link of file
+  DocExtractionResult:
+    type: object
+    required:
+      - fileName
+      - filePath
+      - fileType
+      - fileSize
+      - fileContent
+      - chunkNumber
+    properties:
+      fileName:
+        type: string
+        description: The name of file
+      filePath:
+        type: string
+        description: The path of file
+      fileType:
+        type: string
+        description: The type of file  
+      fileSize:
+        type: integer
+        description: The size of file
+      fileContent:
+        type: string
+        description: The content of file
+      chunkNumber:
+        type: integer
+        description: Chunk Number        

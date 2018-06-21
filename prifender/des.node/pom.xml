@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>0.8.0-SNAPSHOT</version>
     </parent>
     
     <dependencies>
@@ -89,6 +89,49 @@
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
         </dependency>
+        
+        <!-- Google API LIB -->
+        <dependency>
+			<groupId>com.google.api-client</groupId>
+			<artifactId>google-api-client</artifactId>
+			<version>${google.api.client.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.apis</groupId>
+			<artifactId>google-api-services-drive</artifactId>
+			<version>${google.apis.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.oauth-client</groupId>
+			<artifactId>google-oauth-client-jetty</artifactId>
+			<version>${google.api.client.version}</version>
+		</dependency>
+		
+		<!-- Box API LIB -->
+		<dependency>
+			<groupId>com.box</groupId>
+			<artifactId>box-java-sdk</artifactId>
+			<version>2.16.0</version>
+		</dependency>
+		
+		<!-- DropBox API LIB -->
+		<dependency>
+			<groupId>com.dropbox.core</groupId>
+			<artifactId>dropbox-core-sdk</artifactId>
+			<version>3.0.8</version>
+		</dependency>
+		
+		<!-- Apache Tika LIB -->
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-core</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parsers</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
     </dependencies>
 
        <build>
