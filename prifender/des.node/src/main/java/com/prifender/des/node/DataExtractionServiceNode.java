@@ -5,12 +5,16 @@ import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
@@ -20,6 +24,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataExtractionTaskResults;
+import com.prifender.des.model.DocExtractionResult;
 import com.prifender.encryption.api.Encryption;
 import com.prifender.messaging.api.MessageConsumer;
 import com.prifender.messaging.api.MessagingConnection;
@@ -40,7 +45,7 @@ public class DataExtractionServiceNode implements Runnable {
     private String taskStatusQueueName;
     
     private MessagingQueue taskStatusQueue;
-    
+
     @Value( "${scheduling.retries}" )
     private int retries;
     
@@ -122,7 +127,7 @@ public class DataExtractionServiceNode implements Runnable {
 		ObjectMapper mapper = new ObjectMapper();
 		
 		DataExtractionTask dataExtractionJobTask = mapper.readValue(msg, new TypeReference<DataExtractionTask>() { });
-		
+
 		if (dataExtractionJobTask != null) 
 		{
 			String startTime = DATE_FORMAT.format(new Date());
@@ -132,10 +137,17 @@ public class DataExtractionServiceNode implements Runnable {
 			String jobName = null;
 			
 			String dependencyJar = null;
-			
-			
+
 			String[] typeIdJobIdDependencyJar = dataExtractionJobTask.getTypeId().split( "__" );
-			
+
+			if ( typeIdJobIdDependencyJar.length == 1 )
+			{
+				typeId = typeIdJobIdDependencyJar[0];
+				
+				processDocExtactionJob(dataExtractionJobTask, typeId);
+				return;
+			}
+
 			if ( typeIdJobIdDependencyJar.length == 3 )
 			{
 				
@@ -146,7 +158,7 @@ public class DataExtractionServiceNode implements Runnable {
 				dependencyJar = typeIdJobIdDependencyJar[2];
 				
 			}
-			
+
 			dataExtractionJobTask.setContextParameters(decryptContextParams( dataExtractionJobTask.getContextParameters() ));
 			
 			postTaskToTaskStatusQueue
@@ -200,12 +212,97 @@ public class DataExtractionServiceNode implements Runnable {
 			
 			}
 		}catch(Exception e){
-			
+			e.printStackTrace();
 			throw new Exception( e.getMessage( ) );
 			
 		} 
 	}
+	
+	private void processDocExtactionJob(DataExtractionTask dataExtractionJobTask, String typeId) throws Exception {
+		try
+		{
+			String startTime = DATE_FORMAT.format(new Date());
+			
+			postTaskToTaskStatusQueue
+			 (
+					
+		         new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
+		
+				.jobId(dataExtractionJobTask.getJobId()) 
+				
+				.timeStarted(startTime) 
+				
+				.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
+				
+				.lastFailureMessage(dataExtractionJobTask.getLastFailureMessage())
+				
+				.objectsExtracted(0) , taskStatusQueue
+				
+			 ); 
 
+			Map<String, String> contextParams = dataExtractionJobTask.getContextParameters();
+			List<DocExtractionResult> resultList = new ArrayList<>();
+			if("GoogleDrive".equals(typeId)) {
+				GDriveDocExtractionJobExecution docExtractionJobExecution = new GDriveDocExtractionJobExecution();
+				resultList = docExtractionJobExecution.fetchAndExtractDocContent(contextParams);
+			} else if("Box".equals(typeId)) {
+				BoxDocExtractionJobExecution docExtractionJobExecution = new BoxDocExtractionJobExecution();
+				resultList = docExtractionJobExecution.fetchAndExtractDocContent(contextParams);
+			} else if("DropBox".equals(typeId)) {
+				DropBoxDocExtractionJobExecution docExtractionJobExecution = new DropBoxDocExtractionJobExecution();
+				resultList = docExtractionJobExecution.fetchAndExtractDocContent(contextParams);
+			}
+			
+			final MessagingConnection mc = this.messagingConnectionFactory.connect();
+			MessagingQueue docContentQueue = mc.queue(dataExtractionJobTask.getJobId());
+			
+			for(DocExtractionResult docExtractionResult : resultList) 
+			{
+				postResultTodocContentQueue(docExtractionResult, docContentQueue);
+			}
+			
+			String endTime = DATE_FORMAT.format(new Date());
+			
+			postTaskToTaskStatusQueue
+			 (
+					
+		         new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
+		
+				.jobId(dataExtractionJobTask.getJobId()) 
+				
+				.timeStarted(startTime).timeCompleted(endTime)
+				
+				.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
+				
+				.lastFailureMessage(dataExtractionJobTask.getLastFailureMessage())
+				
+				.objectsExtracted(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("SAMPLESIZE"))),
+				
+				taskStatusQueue
+				
+			 );
+		} catch(Exception e) {
+			e.printStackTrace();
+			throw new Exception( e.getMessage( ) );
+		}
+		
+	}
+	
+	/**
+	 * @param dataExtractionTask
+	 * @param queue
+	 * @throws IOException
+	 */
+	private void postResultTodocContentQueue(DocExtractionResult docExtractionResult, final MessagingQueue queue) throws IOException 
+	{
+
+		Gson gsonObj = new Gson();
+		
+		String jsonStr = gsonObj.toJson(docExtractionResult);
+		
+		queue.post(jsonStr);
+	}
+	
 	/**
 	 * @param dataExtractionTask
 	 * @param queue
@@ -256,6 +353,30 @@ public class DataExtractionServiceNode implements Runnable {
 			{
 				if (msg != null) 
 				{
+					
+					String[] dataExtractionJobTaskTokens = dataExtractionJobTask.getTypeId().split( "__" );
+
+					if ( dataExtractionJobTaskTokens.length == 1 )
+					{
+						postTaskToTaskStatusQueue
+						 (
+								
+					         new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
+					
+							.jobId(dataExtractionJobTask.getJobId()) 
+							
+							.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
+							
+							.lastFailureMessage(lastFailureMessage)
+							
+							.objectsExtracted(0) , 
+							
+							taskStatusQueue
+							
+						 );
+						return;
+					}
+					
 					dataExtractionJobTask.setContextParameters(decryptContextParams( dataExtractionJobTask.getContextParameters() ));
 					
 					postTaskToTaskStatusQueue(
@@ -301,7 +422,7 @@ public class DataExtractionServiceNode implements Runnable {
 	 * @return
 	 * @throws Exception
 	 */
-	private Map<String,String> decryptContextParams( final Map<String , String > encryptedContextParams ) throws Exception
+	private Map<String, String> decryptContextParams( final Map<String , String > encryptedContextParams ) throws Exception
 	{
 		final Map<String, String> contextParmas = new HashMap<String, String>();
 		
