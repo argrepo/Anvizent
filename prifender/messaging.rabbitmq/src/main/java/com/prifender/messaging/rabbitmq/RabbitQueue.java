@@ -27,6 +27,8 @@ public final class RabbitQueue implements MessagingQueue
         
         this.channel = channel;
         this.name = name;
+        
+        declareQueue();
     }
     
     @Override

@@ -6,14 +6,14 @@
     <groupId>com.prifender</groupId>
     <artifactId>prifender</artifactId>
     <name>Prifender</name>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
 
         <maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
-        <prifender.version.base>0.8.0</prifender.version.base>
-        <prifender.version.full>0.8.0.${maven.build.timestamp}</prifender.version.full>
+        <prifender.version.base>1.1.0</prifender.version.base>
+        <prifender.version.full>1.1.0.${maven.build.timestamp}</prifender.version.full>
         <prifender.version>${prifender.version.base}-SNAPSHOT</prifender.version>
 
         <java.version>1.8</java.version>
@@ -58,7 +58,9 @@
 
 		<google.api.client.version>1.23.0</google.api.client.version>
 		<google.apis.version>v3-rev110-1.23.0</google.apis.version>
-		
+		<box.java.sdk.version>2.16.0</box.java.sdk.version>
+		<dropbox.core.version>3.0.8</dropbox.core.version>
+		 
 		<!-- Apache Tika : Text Extraction -->
 		
 		<tika.version>1.18</tika.version>
@@ -68,16 +70,6 @@
 		<spring.secutriy.starter>1.4.1.RELEASE</spring.secutriy.starter>
 		<spring.secutriy.cloud>1.1.3.RELEASE</spring.secutriy.cloud>
 
-        <!-- Other Data Source Connectors -->
-
-        <sap.connector.version>3.0</sap.connector.version>
-        <hbase.connector.version>1.3.1</hbase.connector.version>  
-        <hive.connector.version>2.3.2</hive.connector.version>
-        <teradata.connector.version>16.20.00.06</teradata.connector.version>
-        <hdfsavro.connector.version>1.7.4</hdfsavro.connector.version>
-        <hdfparquet.connector.version>1.9.0</hdfparquet.connector.version>
-        <apachehadoop.version>2.7.4</apachehadoop.version>
-  
         <!-- Encoding -->
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -93,7 +85,6 @@
         <module>des.adapter.dss.googledrive</module>
         <module>des.adapter.dss.box</module>  
         <module>des.adapter.dss.dropbox</module>  
-        <module>des.jobs</module>
         <module>des.stub</module>
         <module>des.mock</module>
         <module>des.mock.pump</module>
