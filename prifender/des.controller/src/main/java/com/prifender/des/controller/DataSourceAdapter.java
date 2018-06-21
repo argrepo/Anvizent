@@ -13,7 +13,6 @@ import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
-import com.prifender.messaging.api.MessagingConnectionFactory;
 
 public abstract class DataSourceAdapter
 {
