@@ -85,7 +85,6 @@ public class DropBoxDocExtractionJobExecution
 		}
 		catch ( IOException e )
 		{
-			e.printStackTrace();
 			throw new Exception(e.getMessage());
 		}
 		finally
