@@ -50,9 +50,6 @@ public class DataExtractionServiceNode implements Runnable
 	@Value("${scheduling.retries}")
 	private int retries;
 
-	@Value("${talend.jobs}")
-	private String talendJobsPath;
-
 	@Autowired
 	private Encryption encryption;
 
