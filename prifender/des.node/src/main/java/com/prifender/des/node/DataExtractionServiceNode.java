@@ -136,6 +136,7 @@ public class DataExtractionServiceNode implements Runnable
 
 			if( dataExtractionJobTask != null )
 			{
+				dataExtractionJobTask.setContextParameters(decryptContextParams( dataExtractionJobTask.getContextParameters() ));
 				processDocExtactionJob(dataExtractionJobTask, dataExtractionJobTask.getTypeId());
 			}
 		}
@@ -198,6 +199,8 @@ public class DataExtractionServiceNode implements Runnable
 
 			String endTime = DATE_FORMAT.format(new Date());
 
+			int objectsExtracted = resultList.size();
+			
 			postTaskToTaskStatusQueue(
 
 					new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
@@ -210,7 +213,7 @@ public class DataExtractionServiceNode implements Runnable
 
 							.lastFailureMessage(dataExtractionJobTask.getLastFailureMessage())
 
-							.objectsExtracted(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("SAMPLESIZE"))),
+							.objectsExtracted(objectsExtracted),
 
 					taskStatusQueue);
 		}
