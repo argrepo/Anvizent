@@ -226,7 +226,8 @@ public class GoogleDriveDssAdapter extends DataSourceAdapter
 		try
 		{
 
-			final String userName = getConnectionParam(ds, PARAM_USER_ID);
+			String userName = getConnectionParam(ds, PARAM_USER_ID);
+			userName = userName.substring(0, userName.indexOf("."));
 			DataExtractionJob job = new DataExtractionJob()
 
 					.id(spec.getDataSource() + "-" + userName + "-" + UUID.randomUUID().toString())
@@ -271,7 +272,8 @@ public class GoogleDriveDssAdapter extends DataSourceAdapter
 
 			String[] fileTypes = new String[] {
 					"application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint",
-					"application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.oasis.opendocument.presentation", "text/plain", "application/msword", "application/pdf" };
+					"application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.spreadsheet", "application/vnd.oasis.opendocument.presentation", 
+					"text/plain", "application/msword", "application/pdf", "application/rtf" };
 			
 			List<String> reqDocTypeList = new ArrayList<String>(Arrays.asList(fileTypes));
 			NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();

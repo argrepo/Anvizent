@@ -90,12 +90,8 @@ public final class DocExtractionUtil
 				sb = new StringBuilder();
 			}
 		}
-
-<<<<<<< Upstream, based on origin/master
-		if( chunkList.size() == 0  || sb.toString().length() > 0)
-=======
+		
 		if( chunkList.size() == 0 || sb.toString().length() > 0)
->>>>>>> 33b6130 #6414 Issue Fix
 		{
 			chunkList.add(sb.toString());
 		}

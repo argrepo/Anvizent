@@ -239,35 +239,58 @@ public class GDriveDocExtractionJobExecution
 		return folderMetaInfo;
 	}
 
-	private String getFilePath(final Drive service, String fileId, Map<String, String> foldersMetainfo) throws Exception
+	private String getFilePath(final Drive service, String parentFileId, Map<String, String> foldersMetainfo) throws Exception
 	{
 
 		List<String> filePathList = new ArrayList<>();
 
+		String tempFileId = parentFileId;
+
 		try
 		{
+
+			if(null != foldersMetainfo.get(parentFileId))
+			{
+				filePathList.add(foldersMetainfo.get(parentFileId));
+			}
+
 			com.google.api.services.drive.Drive.Files.List request = service.files().list();
 			com.google.api.services.drive.model.File result;
 			request.setFields("files(id, name, parents), nextPageToken");
 			boolean isRootFolder = false;
 			do
 			{
-				result = service.files().get(fileId).setFields("id,name,parents").execute();
+				result = service.files().get(tempFileId).setFields("id,name,parents").execute();
 				if( result != null )
 				{
-					if( null == foldersMetainfo.get(result.getId()) )
-					{
-						foldersMetainfo.put(result.getId(), result.getName());
-					}
-					filePathList.add(foldersMetainfo.get(result.getId()));
-
-					if( null == result.getParents() || result.getParents().size() == 0 )
+					if( null == result.getParents() || result.getParents().isEmpty())
 					{
 						isRootFolder = true;
+					} 
+					else
+					{
+						List<String> fileParents = result.getParents();
+
+						if(null != fileParents)
+						{
+							for(String path: fileParents)
+							{
+								if(null != foldersMetainfo.get(path))
+								{
+									filePathList.add(foldersMetainfo.get(path));
+									tempFileId = path;
+								} else 
+								{
+									isRootFolder = true;
+								}
+							}
+						} else 
+						{
+							isRootFolder = true;
+						}
 					}
 				}
-			}
-			while (!isRootFolder);
+			} while (!isRootFolder);
 
 		}
 		catch ( Exception e )
@@ -275,7 +298,8 @@ public class GDriveDocExtractionJobExecution
 			throw new Exception(e.getMessage());
 		}
 
-		Collections.sort(filePathList, Collections.reverseOrder());
+		filePathList.add("My Drive");
+		Collections.reverse(filePathList);
 		String filePath = String.join("/", filePathList);
 
 		return filePath;
