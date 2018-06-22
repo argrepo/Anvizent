@@ -24,10 +24,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tika.exception.TikaException;
 import org.xml.sax.SAXException;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.auth.oauth2.Credential;
@@ -84,6 +86,7 @@ public class GDriveDocExtractionJobExecution
 				if( StringUtils.isNotBlank(docContent) )
 				{
 					String filePath = getFilePath(service, fileMetaInfo.getFilePath(), folderMetaInfo);
+
 					List<String> chunksList = splitStringToChunks(docContent, DEFAULT_CHUNK_SIZE);
 
 					int i = 1;

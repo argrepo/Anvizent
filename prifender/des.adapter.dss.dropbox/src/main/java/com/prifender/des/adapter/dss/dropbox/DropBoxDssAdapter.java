@@ -285,7 +285,8 @@ public class DropBoxDssAdapter extends DataSourceAdapter
 		StartResult startResult = null;
 		try
 		{
-			final String userName = getConnectionParam(ds, PARAM_USER_ID);
+			String userName = getConnectionParam(ds, PARAM_USER_ID);
+			userName = userName.substring(0, userName.indexOf("."));
 			DataExtractionJob job = new DataExtractionJob()
 
 					.id(spec.getDataSource() + "-" + userName + "-" + UUID.randomUUID().toString())
