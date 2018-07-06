@@ -200,30 +200,27 @@ public final class OracleDataSourceAdapter extends DataSourceAdapter
 		return metadata;
 	}
 	public List<NamedType> getDatasourceRelatedTables(Connection con, String schemaName) throws SQLException {
-		PreparedStatement preparedStatement = null;
 		ResultSet resultSet = null;
 		List<NamedType> tableList = new ArrayList<>();
 		try {
-					   String tablesQuery = " select TABLE_NAME from SYS.ALL_TABLES  where OWNER = ? union all select VIEW_NAME from SYS.ALL_VIEWS where OWNER =  ? ";
-						preparedStatement = con.prepareStatement(tablesQuery);
-						preparedStatement.setString(1, schemaName);
-						preparedStatement.setString(2, schemaName);
-						resultSet = preparedStatement.executeQuery();
-						while (resultSet.next()) {
-							NamedType namedType = new  NamedType();
-							namedType.setName(resultSet.getString(1));
-							Type type = new Type().kind(Type.KindEnum.LIST);
-							namedType.setType(type);
-							tableList.add(namedType);
-						
-						}
-				Collections.sort(tableList, new Comparator<NamedType>() {
-					public int compare(NamedType result1, NamedType result2) {
-						return result1.getName().compareToIgnoreCase(result2.getName());
-					}
-				});
+			 String[] types = { "TABLE" };
+			resultSet = con.getMetaData().getTables(schemaName, null, "%", types);
+			while (resultSet.next()) {
+				 String tableName = resultSet.getString(3);
+				NamedType namedType = new NamedType();
+				namedType.setName(tableName);
+				Type type = new Type().kind(Type.KindEnum.LIST);
+				namedType.setType(type);
+				tableList.add(namedType);
+
+			}
+			Collections.sort(tableList, new Comparator<NamedType>() {
+				public int compare(NamedType result1, NamedType result2) {
+					return result1.getName().compareToIgnoreCase(result2.getName());
+				}
+			});
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
 
 		return tableList;
@@ -232,23 +229,20 @@ public final class OracleDataSourceAdapter extends DataSourceAdapter
 	public List<NamedType> getTableRelatedColumns(Connection con,String schemaName, String tableName) throws SQLException, DataExtractionServiceException {
 		ResultSet resultSet = null;
 		PreparedStatement preparedStatement = null;
-		String columnsQuery = null;
 		List<NamedType> attributeList = new ArrayList<NamedType>();
 		try {
 			if (con != null) {
-					columnsQuery = "SELECT column_name, data_type , DATA_LENGTH  FROM all_tab_columns where table_name = ? AND OWNER= ? ";
-					preparedStatement = con.prepareStatement(columnsQuery);
-					preparedStatement.setString(1, tableName);
-					preparedStatement.setString(2, schemaName);
-					resultSet = preparedStatement.executeQuery();
+				 DatabaseMetaData meta = con.getMetaData();
+				 resultSet = meta.getColumns(schemaName, null, tableName, "%");
 					while (resultSet.next()) {
+						String columnName = resultSet.getString("COLUMN_NAME");
 						NamedType attributeForColumn = new  NamedType();
-						attributeForColumn.setName(resultSet.getString(1));
-						Type columnInfo = getColumnInfo(con,schemaName,tableName,resultSet.getString(1));
+						attributeForColumn.setName(columnName);
+						Type columnInfo = getColumnInfo(con,schemaName,tableName,columnName);
 						if(columnInfo != null)
 						{ 
 							Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-														   .dataType(getDataType(resultSet.getString(2).toUpperCase())) 
+														   .dataType(getDataType(columnName.toUpperCase())) 
 														   .nullable(columnInfo.getNullable())
 														   .autoIncrement(columnInfo.getAutoIncrement())
 														   .size(columnInfo.getSize());
@@ -367,11 +361,11 @@ public final class OracleDataSourceAdapter extends DataSourceAdapter
 	public boolean isWantedSchema(String schemaName) {
 		String[] defaultSchemas = {};
 		List<String> defaultSchemasList = new ArrayList<>();
-			defaultSchemas = new String[] { "ANONYMOUS"/*, "APEX_030200", "APEX_PUBLIC_USER", "APPQOSSYS", "BI", "CTXSYS",
+			defaultSchemas = new String[] { "ANONYMOUS" , "APEX_030200", "APEX_PUBLIC_USER", "APPQOSSYS", "BI", "CTXSYS",
 					"DBSNMP", "DIP", "EXFSYS", "FLOWS_FILES", "HR", "IX", "MDDATA", "MDSYS", "MGMT_VIEW", "OE",
 					"OLAPSYS", "ORACLE_OCM", "ORDDATA", "ORDPLUGINS", "ORDSYS", "OUTLN", "OWBSYS", "OWBSYS_AUDIT", "PM",
 					"SCOTT", "SH", "SI_INFORMTN_SCHEMA", "SPATIAL_CSW_ADMIN_USR", "SPATIAL_WFS_ADMIN_USR", "SYS",
-					"SYSMAN", "SYSTEM", "WMSYS", "XDB", "XS$NULL"*/ }; 
+					"SYSMAN", "SYSTEM", "WMSYS", "XDB", "XS$NULL" }; 
 		boolean wantedSchema = true;
 		for (int i = 0; i < defaultSchemas.length; i++) {
 			defaultSchemasList.add(defaultSchemas[i]);

@@ -309,18 +309,16 @@ public final class HiveDataSourceAdapter extends DataSourceAdapter {
 		} catch (SQLException e) {
 			e.getMessage();
 		}
-
 		return attributeList;
 	}
 	private List<String> getAllDatasourcesFromDatabase(Connection con) throws SQLException {
 		List<String> schemaList = new ArrayList<>();
 		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
+		DatabaseMetaData databaseMetaData=null;
 		try {
 			if (con != null) {
-				String shemaQuery = "SELECT quotename(name) as DBName FROM sys.sysdatabases  WHERE HAS_DBACCESS(name) = 1 and (name not in ('master','tempdb','msdb','model') and name not like 'ReportServer$%') ";
-				preparedStatement = con.prepareStatement(shemaQuery);
-				resultSet = preparedStatement.executeQuery();
+				databaseMetaData = con.getMetaData();
+				resultSet = databaseMetaData.getCatalogs();
 				while (resultSet.next()) {
 					List<String> schemaNameList = getSchemaByDatabse(con, resultSet.getString(1));
 					for (String schema : schemaNameList) {
@@ -331,7 +329,7 @@ public final class HiveDataSourceAdapter extends DataSourceAdapter {
 			Collections.sort(schemaList, String.CASE_INSENSITIVE_ORDER);
 
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
 		return schemaList;
 	}

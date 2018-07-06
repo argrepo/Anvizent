@@ -1,6 +1,7 @@
 package com.prifender.des.adapter.relational.sqlserver;
 
 import static com.prifender.des.util.DatabaseUtil.closeSqlObject;
+
 import static com.prifender.des.util.DatabaseUtil.getDataType;
 import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
 import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
@@ -13,7 +14,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+//import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -153,20 +154,16 @@ public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 	private Metadata metadataByConnection(Connection con, String schemaName, String databaseName) throws DataExtractionServiceException {
 		Metadata metadata = new Metadata();
 		List<String> dataSourceList = null;
-		String dataSourceName = null;
-		if (databaseName != null && schemaName != null ) {
-			dataSourceName = "[" + databaseName + "]." + "[" + schemaName + "]";
-		}
 		try {
 			dataSourceList = getAllDatasourcesFromDatabase(con);
 			if ( dataSourceList.size() == 0) {
 				throw new DataExtractionServiceException(new Problem().code("No Databases").message("No Databases found in "+TYPE_ID +"database."));
 			}
 			if (dataSourceList.size() > 0) {
-				if (dataSourceName != null) {
-					if (dataSourceList.contains(dataSourceName)) {
+				if (schemaName != null) {
+					if (dataSourceList.contains(schemaName)) {
 						dataSourceList = new ArrayList<String>();
-						dataSourceList.add(dataSourceName);
+						dataSourceList.add(schemaName);
 					} else {
 						throw new DataExtractionServiceException(new Problem().code("Unknown database").message("Database not found in "+TYPE_ID +"database."));
 					}
@@ -174,29 +171,26 @@ public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 			}  
 			List<NamedType> namedTypeObjectsList = new ArrayList<NamedType>();
 			for (String dataSource : dataSourceList) {
-				List<NamedType> tableList = getSchemaRelatedTables(con, dataSource);
+				List<NamedType> tableList = getSchemaRelatedTables(con, schemaName,databaseName);
 				for (NamedType namedType : tableList) {
 					/* table entry type */
 					Type entryType = new Type().kind(Type.KindEnum.OBJECT);
 					namedType.getType().setEntryType(entryType);
 
-					String dbReplaceBrackets = "[" + namedType.getName().split("\\.")[0] + "]";
-					String schemeName = "[" + namedType.getName().split("\\.")[1] + "]";
-					String dbName = "[" + namedType.getName().split("\\.")[2] + "]";
-					String tableName = dbReplaceBrackets + "." + schemeName + "." + dbName;
-					List<NamedType> attributeListForColumns = getTableRelatedColumns(con, dataSource, tableName);
+					String tableName = namedType.getName().split("\\.")[2] ;
+					List<NamedType> attributeListForColumns = getTableRelatedColumns(con, databaseName,schemaName, tableName);
 					entryType.setAttributes(attributeListForColumns);
 
 					/* add primary keys here */
 					List<Constraint> pkFkConstraintList = new ArrayList<Constraint>();
-					List<Constraint> pkConstraintList = getTableRelatedPkInfo(con, dataSource, namedType.getName());
+					List<Constraint> pkConstraintList = getTableRelatedPkInfo(con,databaseName, dataSource, tableName);
 					if (pkConstraintList != null) {
 						for (Constraint constraint : pkConstraintList) {
 							pkFkConstraintList.add(constraint);
 						}
 					}
 					/* add foreign keys here */
-					List<Constraint> fkConstraintList = getTableRelatedFkInfo(con, dataSource, namedType.getName());
+					List<Constraint> fkConstraintList = getTableRelatedFkInfo(con,databaseName, dataSource, namedType.getName());
 					if (fkConstraintList != null) {
 						for (Constraint constraint : fkConstraintList) {
 							pkFkConstraintList.add(constraint);
@@ -213,30 +207,17 @@ public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 		return metadata;
 	}
 
-	private List<NamedType> getSchemaRelatedTables(Connection con, String schemaName) throws SQLException {
+	private List<NamedType> getSchemaRelatedTables(Connection con, String schemaName,String databaseName) throws SQLException {
 		List<NamedType> tableList = new ArrayList<>();
-		PreparedStatement preparedStatement = null;
 		ResultSet resultSet = null;
 		try {
 			if (con != null) {
-				String tablesQuery = null;
-				String[] name = schemaName.split(",");
-				for (String schema : name) {
-					String dbReplaceBrackets = schema.split("\\.")[0].replaceAll("\\[", "").replaceAll("\\]", "");
-					String schameName = schema.split("\\.")[1].replaceAll("\\[", "").replaceAll("\\]", "");
-					String dbName = schema.split("\\.")[0];
-					tablesQuery = "SELECT TOP 50 QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME) as TABLE_NAME_1  FROM "
-							+ dbName
-							+ ".INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME not in('sysdiagrams') AND TABLE_CATALOG= ? AND TABLE_SCHEMA = ? order by TABLE_NAME";
-					preparedStatement = con.prepareStatement(tablesQuery);
-					preparedStatement.setString(1, dbReplaceBrackets);
-					preparedStatement.setString(2, schameName);
-					resultSet = preparedStatement.executeQuery();
+				DatabaseMetaData databaseMetadata = con.getMetaData();
+					 resultSet = databaseMetadata.getTables(databaseName, schemaName, "%",  new String[] {"TABLE"});
 					while (resultSet.next()) {
+						String tableName = resultSet.getString(3);
 						NamedType namedType = new NamedType();
-						namedType.setName(
-								dbName.replaceAll("\\[", "").replaceAll("\\]", "") + "." + 
-						resultSet.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
+						namedType.setName(databaseName+"."+schemaName+"."+tableName);
 						Type type = new Type().kind(Type.KindEnum.LIST);
 						namedType.setType(type);
 						tableList.add(namedType);
@@ -248,154 +229,89 @@ public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 						return result1.getName().compareToIgnoreCase(result2.getName());
 					}
 				});
-			}
-		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+		}
+		 finally {
+			closeSqlObject(resultSet);
 		}
 
 		return tableList;
 	}
-
-	private List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName) throws SQLException, DataExtractionServiceException {
+	
+	private List<NamedType> getTableRelatedColumns(Connection con,String databaseName, String schemaName, String tableName) throws SQLException
+	{
 		ResultSet rs = null;
-		PreparedStatement pstmt = null;
-		String columnsQuery = null;
+		DatabaseMetaData meta=null;
 		List<NamedType> attributeList = new ArrayList<NamedType>();
-		try {
-			if (con != null) {
-				String schema = tableName.split("\\.")[0];
-				columnsQuery = " SELECT QUOTENAME(COLUMN_NAME) as COLUMN_NAME, DATA_TYPE, DATA_TYPE + case when DATA_TYPE like '%char%' then '('+ cast(CHARACTER_MAXIMUM_LENGTH as varchar)+')' when DATA_TYPE in( 'numeric','real', 'decimal') then '('+ cast(NUMERIC_PRECISION as varchar)+','+ cast(NUMERIC_SCALE as varchar) +')'   else ''  end as Col_Len "
-						+ " FROM  " + schema + ".INFORMATION_SCHEMA.COLUMNS WHERE  ( '" + schema
-						+ "' +'.'+QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME) ) = ? ";
-				pstmt = con.prepareStatement(columnsQuery);
-				pstmt.setString(1, tableName);
-				rs = pstmt.executeQuery();
-				while (rs.next()) {
-					NamedType attributeForColumn = new NamedType();
-					attributeForColumn.setName(rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
-					Type columnInfo = getColumnInfo(con,tableName,rs.getString(1).replaceAll("\\[", "").replaceAll("\\]", ""));
-					if(columnInfo != null)
-					{ 
-						Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-													   .dataType(getDataType(rs.getString(2).toUpperCase())) 
-													   .nullable(columnInfo.getNullable())
-													   .autoIncrement(columnInfo.getAutoIncrement())
-													   .size(columnInfo.getSize());
-					    attributeForColumn.setType(typeForCoumn);
+		try
+		{
+			if( con != null )
+			{
+				 meta = con.getMetaData();
+				 rs = meta.getColumns(databaseName, schemaName, tableName,null);
+				 while (rs.next())
+					{
+					 	String columnName = rs.getString("COLUMN_NAME");
+						NamedType attributeForColumn = new NamedType();
+						attributeForColumn.setName(columnName);
+						Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(columnName.toUpperCase()));
+						attributeForColumn.setType(typeForCoumn);
 						attributeList.add(attributeForColumn);
-					 }
-				}
+					}
 			}
-		} finally {
-			closeSqlObject(rs, pstmt);
 		}
-
+		finally
+		{
+			closeSqlObject(rs);
+		}
 		return attributeList;
 	}
-	private Type getColumnInfo(Connection connection,String tableName,String columnName) throws DataExtractionServiceException{
-		Type type= new Type();
-		ResultSet resultSet = null;
-		try {
-			String dbName = tableName.split("\\.")[0].replaceAll("\\[", "").replaceAll("\\]", "");
-			String schema = tableName.split("\\.")[1].replaceAll("\\[", "").replaceAll("\\]", "");
-			String tabName = tableName.split("\\.")[2].replaceAll("\\[", "").replaceAll("\\]", "");
-			DatabaseMetaData meta = connection.getMetaData();
-			resultSet = meta.getColumns(dbName, schema, tabName,columnName);
-			if (resultSet.next()) {
-				type.setSize(resultSet.getInt("COLUMN_SIZE"));
-				type.setAutoIncrement(resultSet.getString("IS_AUTOINCREMENT").equals("YES") ? true : false);
-				type.setNullable(resultSet.getString("IS_NULLABLE").equals("YES") ? true : false); 
-			} 
-		} catch (SQLException e) {
-			throw new DataExtractionServiceException(new Problem().code("Error").message(e.getMessage()));
-		}finally{
-			 closeSqlObject(resultSet);
-		}
-		return type;
-	}
 	
-	private List<Constraint> getTableRelatedFkInfo(Connection con, String schemaName, String tableName) throws SQLException {
+	
+	private List<Constraint> getTableRelatedFkInfo(Connection con,String databaseName, String schemaName, String tableName) throws SQLException {
 		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
+		DatabaseMetaData meta=null;
 		List<Constraint> constraintList = new ArrayList<>();
 		try {
 			if (con != null) {
-				String dbName = tableName.split("\\.")[0];
-				String schema = tableName.split("\\.")[1].replaceAll("\\[", "").replaceAll("\\]", "");
-				String tabName = tableName.split("\\.")[2].replaceAll("\\[", "").replaceAll("\\]", "");
-
-				StringBuilder queryBuilder = new StringBuilder();
-				queryBuilder .append(" SELECT ["+dbName+"].CONSTRAINT_CATALOG AS CONSTRAINT_CATALOG, ["+dbName+"].CONSTRAINT_SCHEMA AS CONSTRAINT_SCHEMA, ["+dbName+"].TABLE_NAME AS TABLE_NAME ,["+dbName+"].COLUMN_NAME AS column_name ")
-						     .append(" ,["+dbName+"].CONSTRAINT_NAME AS FK_CONSTRAINT_NAME ")
-						     .append("  ,["+dbName+"].ORDINAL_POSITION AS FK_ORDINAL_POSITION  ,KCU2.CONSTRAINT_NAME AS REFERENCED_CONSTRAINT_NAME ") 
-						     .append(" ,KCU2.TABLE_NAME AS referenced_object  ,KCU2.COLUMN_NAME AS REFERENCED_COLUMN_NAME   ,KCU2.ORDINAL_POSITION AS REFERENCED_ORDINAL_POSITION " ) 
-						     .append(" FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS RC ")
-						     .append(" INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS ["+dbName+"]   ON ["+dbName+"].CONSTRAINT_CATALOG = RC.CONSTRAINT_CATALOG ")  
-						     .append("  AND ["+dbName+"].CONSTRAINT_SCHEMA = RC.CONSTRAINT_SCHEMA  AND ["+dbName+"].CONSTRAINT_NAME = RC.CONSTRAINT_NAME ")
-				             .append(" INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KCU2   ON KCU2.CONSTRAINT_CATALOG = RC.UNIQUE_CONSTRAINT_CATALOG  ")
-				             .append("  AND KCU2.CONSTRAINT_SCHEMA = RC.UNIQUE_CONSTRAINT_SCHEMA   AND KCU2.CONSTRAINT_NAME = RC.UNIQUE_CONSTRAINT_NAME ")
-				             .append(" AND KCU2.ORDINAL_POSITION = ["+dbName+"].ORDINAL_POSITION where  ["+dbName+"].CONSTRAINT_CATALOG = ?  and ")
-				             .append(" ["+dbName+"].CONSTRAINT_SCHEMA = ?  and ["+dbName+"].TABLE_NAME = ? ");
-				
-				preparedStatement = con.prepareStatement(queryBuilder.toString());
-				preparedStatement.setString(1, dbName);
-				preparedStatement.setString(2, schema);
-				preparedStatement.setString(3, tabName);
-				resultSet = preparedStatement.executeQuery();
+				 meta = con.getMetaData( );
+				resultSet = meta.getExportedKeys(databaseName, schemaName, tableName);
 				while (resultSet.next()) {
-					if (resultSet.getString("referenced_column_name") != null) {
-						boolean isForeignKey = resultSet.getString("referenced_column_name") != null ? true : false;
-						List<String> fkAttributes = new ArrayList<>();
+					if (resultSet.getString("FKCOLUMN_NAME") != null) {
+						boolean isForeignKey = resultSet.getString("FKCOLUMN_NAME") != null ? true : false;
 						List<String> pkOfFkAttributes = new ArrayList<>();
 						Constraint constraint = new Constraint().kind(Constraint.KindEnum.FOREIGN_KEY);
-						if (StringUtils.isNotBlank(resultSet.getString("referenced_column_name"))) {
+						
+						if (StringUtils.isNotBlank(resultSet.getString("FKCOLUMN_NAME"))) {
 							if (isForeignKey) {
-								fkAttributes.add(resultSet.getString("referenced_column_name"));
-								pkOfFkAttributes.add(resultSet.getString("column_name"));
-								constraint.setTarget(resultSet.getString("CONSTRAINT_CATALOG")+"."+resultSet.getString("CONSTRAINT_SCHEMA")+"."+resultSet.getString("referenced_object"));
+								
+								pkOfFkAttributes.add(resultSet.getString("FKCOLUMN_NAME"));
+								constraint.setTarget(resultSet.getString("FKTABLE_CAT")+"."+resultSet.getString("FKTABLE_SCHEM")+"."+resultSet.getString("FKCOLUMN_NAME"));
 							}
 						}
 						constraint.setAttributes(pkOfFkAttributes);
-						constraint.setTargetAttributes(fkAttributes);
 						constraintList.add(constraint);
 					}
 				}
 			}
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
-
 		return constraintList;
 	}
 
-	private List<Constraint> getTableRelatedPkInfo(Connection con, String schemaName, String tableName) throws SQLException {
+	private List<Constraint> getTableRelatedPkInfo(Connection con, String dataBaseName,String schemaName, String tableName) throws SQLException {
 		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
+		DatabaseMetaData dm=null;
 		List<Constraint> constraintList = new ArrayList<Constraint>();
 		try {
 			if (con != null) {
-				String[] dbSchemaTable = StringUtils.split(tableName, ".");
-				String dbName = dbSchemaTable[0];
-				String schema = dbSchemaTable[1];
-				String tabName = dbSchemaTable[2];
-
-				StringBuilder queryBuilder = new StringBuilder();
-				queryBuilder.append("SELECT KU.table_name as TABLENAME,column_name as PRIMARYKEYCOLUMN ")
-						.append("FROM ["+dbName+"].INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS TC ")
-						.append("INNER JOIN ["+dbName+"].INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU ")
-						.append("ON TC.CONSTRAINT_TYPE = 'PRIMARY KEY' AND ")
-						.append("TC.CONSTRAINT_NAME = KU.CONSTRAINT_NAME AND  ")
-						.append("KU.table_name=? and KU.CONSTRAINT_SCHEMA=? ")
-						.append("ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION;");
-
-				preparedStatement = con.prepareStatement(queryBuilder.toString());
-				preparedStatement.setString(1, tabName);
-				preparedStatement.setString(2, schema);
-				resultSet = preparedStatement.executeQuery();
+				 dm = con.getMetaData( );
+			    resultSet = dm.getPrimaryKeys(dataBaseName, schemaName,tableName );
+		
 				List<String> pkAttributes = new ArrayList<>();
 				Constraint constraint = new Constraint();
 				while (resultSet.next()) {
-						pkAttributes.add(resultSet.getString("PRIMARYKEYCOLUMN"));
+						pkAttributes.add(resultSet.getString("COLUMN_NAME"));
 				}
 				if (pkAttributes != null && pkAttributes.size() > 0) {
 					constraint.kind(Constraint.KindEnum.PRIMARY_KEY);
@@ -404,57 +320,89 @@ public final class SqlServerDataSourceAdapter extends DataSourceAdapter {
 				}
 			}
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
 		return constraintList;
 	}
 
 	private List<String> getAllDatasourcesFromDatabase(Connection con) throws SQLException {
 		List<String> schemaList = new ArrayList<>();
+		List<String> dataBaseList = new ArrayList<>();
 		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
+		DatabaseMetaData databaseMetaData=null;
 		try {
 			if (con != null) {
-				String shemaQuery = "SELECT quotename(name) as DBName FROM sys.sysdatabases  WHERE HAS_DBACCESS(name) = 1 and (name not in ('master','tempdb','msdb','model') and name not like 'ReportServer$%') ";
-				preparedStatement = con.prepareStatement(shemaQuery);
-				resultSet = preparedStatement.executeQuery();
+				databaseMetaData = con.getMetaData();
+				resultSet = databaseMetaData.getCatalogs();
 				while (resultSet.next()) {
-					List<String> schemaNameList = getSchemaByDatabse(con, resultSet.getString(1));
-					for (String schema : schemaNameList) {
-						schemaList.add(resultSet.getString(1) + "." + schema);
+					String dataBase = resultSet.getString("TABLE_CAT");
+					if (isWantedDataBase(dataBase)) {
+						dataBaseList.add(dataBase);
 					}
 				}
+				List<String> schemaNameList = getSchemaByDatabse(con,dataBaseList.toString());
+				for (String schema : schemaNameList) {
+					schemaList.add(schema);	
 			}
 			Collections.sort(schemaList, String.CASE_INSENSITIVE_ORDER);
-
+			}
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
 		return schemaList;
 	}
 
+	public boolean isWantedDataBase(String schemaName) {
+		String[] defaultDataBases = {};
+		List<String> defaultDataBaseList = new ArrayList<>();
+		defaultDataBases = new String[] { "AdventureWorks2016_EXT" , "chandan", "ContosoRetailDW", "customers_m001v1", "employees_5m", "employees_k010v2",
+					"employees_k025v2", "employees_k025v3", "employees_k025v3_copy", "employees_k025v3_partial", "employees_k025v3_truncated", "employees_k050v2", "employees_k100v2", "employees_k100x100v3", "employees_k500v2", "employees_m001",
+					"employees_m001v2", "employees_m005v2", "employees_m010", "employees_m010v2", "employees_m050", "employees_m050v2", "kosta_test", "master", "model",
+					"msdb", "people_10k", "perf_test", "SELECT", "Table100", "tempdb",
+					"WideWorldImporters" }; 
+		boolean wantedDataBase = true;
+		for (int i = 0; i < defaultDataBases.length; i++) {
+			defaultDataBaseList.add(defaultDataBases[i]);
+		}
+		if (defaultDataBaseList.contains(schemaName)) {
+			wantedDataBase = false;
+		}
+		return wantedDataBase;
+	}
+	
+	
 	private List<String> getSchemaByDatabse(Connection con, String databaseName) throws SQLException {
 		List<String> schemas = new ArrayList<>();
-		PreparedStatement preparedStatement = null;
 		ResultSet resultSet = null;
-		String schemasQuery = null;
 		try {
-			String replacedDatabaseName = databaseName.replaceAll("\\[", "").replaceAll("\\]", "");
-			schemasQuery = " SELECT  DISTINCT QUOTENAME(TABLE_SCHEMA)  FROM " + databaseName
-					+ ".INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG=? ";
-			preparedStatement = con.prepareStatement(schemasQuery);
-			preparedStatement.setString(1, replacedDatabaseName);
-			resultSet = preparedStatement.executeQuery();
+			resultSet= con.getMetaData().getSchemas();
 			while (resultSet.next()) {
-				schemas.add(resultSet.getString(1));
+				String schema = resultSet.getString("TABLE_SCHEM");
+				if (isWantedSchema(schema)) {
+					schemas.add(schema);
+				}
 			}
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
-
 		return schemas;
 	}
 
+	public boolean isWantedSchema(String schemaName) {
+		String[] defaultSchemas = {};
+		List<String> defaultSchemasList = new ArrayList<>();
+			defaultSchemas = new String[] { "db_accessadmin", "db_backupoperator", "db_datareader", "db_datawriter", "db_ddladmin", "db_denydatareader",
+					"db_denydatawriter", "db_owner", "db_securityadmin", "guest", "INFORMATION_SCHEMA", "sys", "hr"}; 
+		boolean wantedSchema = true;
+		for (int i = 0; i < defaultSchemas.length; i++) {
+			defaultSchemasList.add(defaultSchemas[i]);
+		}
+		if (defaultSchemasList.contains(schemaName)) {
+			wantedSchema = false;
+		}
+		return wantedSchema;
+	}
+	
 	private int getTableCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
 		int countRows = 0;
 		Connection connection = null;

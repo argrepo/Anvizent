@@ -70,6 +70,15 @@ public abstract class DataSourceAdapter
     
     public static final ConnectionParamDef PARAM_SCHEMA 
         = new ConnectionParamDef().id( PARAM_SCHEMA_ID ).label( PARAM_SCHEMA_LABEL ).description( PARAM_SCHEMA_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    public static final String PARAM_URL_ID = "Schema";
+    public static final String PARAM_URL_LABEL = "Schema";
+    public static final String PARAM_URL_DESCRIPTION = "The name of a schema within the specified database";
+    
+    public static final ConnectionParamDef PARAM_URL 
+        = new ConnectionParamDef().id( PARAM_URL_ID ).label( PARAM_URL_LABEL ).description( PARAM_URL_DESCRIPTION ).type( TypeEnum.STRING );
+    
+    
 	
     public static final class StartResult
     {

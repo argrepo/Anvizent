@@ -10,7 +10,7 @@
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>0.8.0-SNAPSHOT</version>
     </parent>
 
     <dependencies>
@@ -43,7 +43,7 @@
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.oracle</artifactId>
             <version>${prifender.version}</version>
-        </dependency>
+        </dependency>  
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.sqlserver</artifactId>
@@ -67,7 +67,7 @@
             <artifactId>des.adapter.filesystem.csv</artifactId>
             <version>${prifender.version}</version>
         </dependency>
-        <dependency>
+      <!--   <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.hierarchical.hdfsavro</artifactId>
             <version>${prifender.version}</version>
@@ -86,7 +86,7 @@
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.hierarchical.hdfsparquet</artifactId>
             <version>${prifender.version}</version>
-        </dependency>
+        </dependency> -->
         <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.hive</artifactId>
@@ -102,11 +102,16 @@
             <artifactId>des.adapter.relational.sqlserverkerbores</artifactId>
             <version>${prifender.version}</version>
         </dependency>
-        <dependency>
+          <dependency>
+            <groupId>com.prifender</groupId>
+            <artifactId>des.adapter.hierarchical.salesforce</artifactId>
+            <version>${prifender.version}</version>
+        </dependency>
+       <!--  <dependency>
             <groupId>com.prifender</groupId>
             <artifactId>des.adapter.relational.teradata</artifactId>
             <version>${prifender.version}</version>
-        </dependency>
+        </dependency> -->
     </dependencies>
 
     <build>

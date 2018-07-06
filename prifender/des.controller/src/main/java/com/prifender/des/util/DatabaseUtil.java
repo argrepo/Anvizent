@@ -112,17 +112,17 @@ public final class DatabaseUtil {
 		DataTypeEnum dataTypeEnum = null;
 		if (dataType.equals("VARCHAR") || dataType.equals("TEXT") || dataType.equals("PICKLIST")
 				|| dataType.equals("VARCHAR2") || dataType.equals("NVARCHAR") || dataType.equals("NCHAR")
-				|| dataType.equals("REFERENCE") || dataType == "TEXTAREA" || dataType == "PHONE"
+				|| dataType.equals("REFERENCE") || dataType.equals("TEXTAREA") || dataType.equals("PHONE")
 				|| dataType.equals("URL") || dataType.equals("LONGVARCHAR") || dataType.equals("LONGTEXTAREA")
 				|| dataType.equals("ID") || dataType.equals("NTEXT") || dataType.equals("UNIQUEIDENTIFIER")
-				|| dataType.equals("CHAR") || dataType.equals("CHARACTER") || dataType.equals("CHARACTER VARYING")
+				|| dataType.equals("CHAR") || dataType.equals("CHARACTER") || dataType.equals("CHARACTER VARYING") || dataType.equals("ADDRESS") 
 				|| dataType.equals("BIT") || dataType.equals("VARBIT") || dataType.equals("BIT VARYING") || dataType.equals("STRING") || dataType.equals("String") ) {
 			dataTypeEnum = Type.DataTypeEnum.STRING;
 		} else if (dataType.equals("VARBINARY") || dataType.equals("LONGVARBINARY")) {
 			dataTypeEnum = Type.DataTypeEnum.BINARY;
-		} else if (dataType.equals("BOOLEAN") || dataType.equals("BOOL")) {
+		} else if (dataType.equals("BOOLEAN") || dataType.equals("BOOL") || dataType.equals("_BOOLEAN")  ) {
 			dataTypeEnum = Type.DataTypeEnum.BOOLEAN;
-		} else if (dataType.equals("INT") || dataType.equals("NUMBER") || dataType.equals("BIGINT")
+		} else if (dataType.equals("INT") || dataType.equals("NUMBER") || dataType.equals("BIGINT") || dataType.equals("_INT")
 				|| dataType.equals("INTEGER") || dataType.equals("MEDIUMINT") || dataType.equals("SMALLINT")
 				|| dataType.equals("TINYINT") || dataType.equals("INT UNSIGNED") || dataType.equals("SMALLSERIAL")
 				|| dataType.equals("SERIAL") || dataType.equals("BIGSERIAL") || dataType.equals("INT32")) {
@@ -131,7 +131,7 @@ public final class DatabaseUtil {
 			dataTypeEnum = Type.DataTypeEnum.CURRENCY;
 		} else if (dataType.equals("DECIMAL") || dataType.equals("FIXED_LEN_BYTE_ARRAY")) {
 			dataTypeEnum = Type.DataTypeEnum.DECIMAL;
-		} else if (dataType.equals("FLOAT") || dataType.equals("DOUBLE") || dataType.equals("NUMERIC")
+		} else if (dataType.equals("FLOAT") || dataType.equals("DOUBLE") || dataType.equals("NUMERIC") || dataType.equals("_DOUBLE")  
 				|| dataType.equals("LONG") || dataType.equals("REAL")) {
 			dataTypeEnum = Type.DataTypeEnum.FLOAT;
 		} else if (dataType.equals("DATETIME") || dataType.equals("DATE") || dataType.equals("TIMESTAMP")

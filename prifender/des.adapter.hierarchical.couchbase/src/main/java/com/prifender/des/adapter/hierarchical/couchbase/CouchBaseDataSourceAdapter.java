@@ -1,6 +1,7 @@
 package com.prifender.des.adapter.hierarchical.couchbase;
 
 import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+
 import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
 import static com.prifender.des.util.DatabaseUtil.createDir;
 import static com.prifender.des.util.DatabaseUtil.getUUID;
@@ -261,7 +262,7 @@ public final class CouchBaseDataSourceAdapter extends DataSourceAdapter {
 				Type entryType = entryType(Type.KindEnum.OBJECT);
 				namedType.getType().setEntryType(entryType);
 
-				List<NamedType> attributeListForColumns = getTableRelatedColumns(namedType.getName(), clusterManager,
+				List<NamedType> attributeListForColumns = getTableRelatedColumns(bucket, clusterManager,
 						cluster, bucketPassword);
 				entryType.setAttributes(attributeListForColumns);
 				namedTypeObjectsList.add(namedType);

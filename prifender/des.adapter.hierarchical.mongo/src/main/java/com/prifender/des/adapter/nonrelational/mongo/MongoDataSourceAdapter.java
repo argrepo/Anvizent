@@ -15,6 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -37,6 +38,7 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Projections;
 import com.prifender.des.DataExtractionServiceException;
+ 
 import com.prifender.des.controller.DataSourceAdapter;
 import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.DataExtractionJob;
@@ -51,144 +53,239 @@ import com.prifender.des.model.Type;
 import com.prifender.des.model.Type.DataTypeEnum;
 import com.prifender.des.model.Type.KindEnum;
 
+/**
+ * The MongoDataSourceAdapter Component implements
+ * 
+ * Test connection establishment based on datasource
+ * 
+ * Fetch hierarchical metadata based on datasource
+ * 
+ * Start data extraction job based on datasource and data extraction spec
+ * 
+ * @author Mahender Alaveni
+ * 
+ * @version 1.1.0
+ * 
+ * @since 2018-04-06
+ */
 @Component
-@SuppressWarnings("rawtypes")
-public final class MongoDataSourceAdapter extends DataSourceAdapter {
-    
-    @Value( "${des.home}" )
-    private String desHome;
-    
-    private final static String JOB_NAME = "local_project.prifender_mongodb_v1_0_1.Prifender_MONGODB_v1";
-    
-	private final static String DEPENDENCY_JAR = "prifender_mongodb_v1_0_1.jar";
+public final class MongoDataSourceAdapter extends DataSourceAdapter
+{
 
-	private static final int  MIN_THRESHOULD_ROWS = 100000;		
-	 
-	private static final int  MAX_THRESHOULD_ROWS = 200000;
+	  @Value( "${des.home}" )
+	    private String desHome;
 	
+	    private final static String JOB_NAME = "local_project.prifender_mongodb_v1_0_1.Prifender_MONGODB_v1";
+	    
+		private final static String DEPENDENCY_JAR = "prifender_mongodb_v1_0_1.jar";
+
+	private static final int MIN_THRESHOULD_ROWS = 100000;
+
+	private static final int MAX_THRESHOULD_ROWS = 200000;
+
 	private static final String TYPE_ID = "Mongo";
-    public static final String TYPE_LABEL = "MongoDB";
-    
-    private static final DataSourceType TYPE = new DataSourceType()
-        .id( TYPE_ID ).label( TYPE_LABEL )
-        .addConnectionParamsItem( PARAM_HOST )
-        .addConnectionParamsItem( clone( PARAM_PORT ).required( false ).defaultValue( "27017" ) )
-        .addConnectionParamsItem( PARAM_USER )
-        .addConnectionParamsItem( PARAM_PASSWORD )
-        .addConnectionParamsItem( PARAM_DATABASE );
+	public static final String TYPE_LABEL = "MongoDB";
+
+	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label(TYPE_LABEL).addConnectionParamsItem(PARAM_HOST).addConnectionParamsItem(clone(PARAM_PORT).required(false).defaultValue("27017")).addConnectionParamsItem(PARAM_USER).addConnectionParamsItem(PARAM_PASSWORD)
+			.addConnectionParamsItem(PARAM_DATABASE);
 
 	@Override
-	public DataSourceType getDataSourceType() {
+	public DataSourceType getDataSourceType()
+	{
 		return TYPE;
 	}
 
-	public void destroy(MongoClient mongoClient) {
-		if (mongoClient != null) {
-			try {
-				mongoClient.close();
-				mongoClient = null;
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
 	@Override
-	public ConnectionStatus testConnection(DataSource ds) throws DataExtractionServiceException {
+	public ConnectionStatus testConnection(DataSource ds) throws DataExtractionServiceException
+	{
 		MongoClient mongoClient = null;
-		try {
+		List<String> dataSourceList = null;
+		MongoCursor<Document> documents = null;
+		try
+		{
 			mongoClient = getDataBaseConnection(ds);
-			if (mongoClient != null) {
-				try {
+			if( mongoClient != null )
+			{
+				try
+				{
 					final String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
-					MongoDatabase mongoDatabase = mongoClient.getDatabase(databaseName);
-					MongoCursor<Document> document= mongoDatabase.listCollections().iterator();
-					if (document != null) {
-						return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS)
-								.message("Mongo connection successfully established.");
+
+					if( StringUtils.isNotBlank(databaseName) )
+					{
+						dataSourceList = new ArrayList<String>();
+						dataSourceList.add(databaseName);
 					}
-				} catch (MongoSecurityException e) {
-					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE)
-							.message(e.getMessage());
-				} catch (MongoTimeoutException timeout) {
-					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE)
-							.message(timeout.getMessage());
-				} catch (MongoException e) {
-					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE)
-							.message(e.getMessage());
+					else
+					{
+						dataSourceList = getAllDatasourcesFromDatabase(mongoClient);
+					}
+
+					if( dataSourceList == null )
+					{
+						throw new IllegalArgumentException("Database '" + databaseName + "' not found.");
+					}
+
+					MongoDatabase mongoDatabase = mongoClient.getDatabase(databaseName);
+					documents = mongoDatabase.listCollections().iterator();
+					if( documents != null )
+					{
+						return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("Mongo connection successfully established.");
+					}
+					else
+					{
+						throw new IllegalArgumentException("No Documents found in database '" + databaseName + "'.");
+					}
+
+				}
+				catch ( MongoSecurityException e )
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
+				}
+				catch ( MongoTimeoutException timeout )
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(timeout.getMessage());
+				}
+				catch ( MongoException e )
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
+				}
+				catch ( IllegalArgumentException iae )
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(iae.getMessage());
 				}
 			}
-		} finally {
-			destroy(mongoClient);
+		}
+		finally
+		{
+			destroy(mongoClient, documents);
 		}
 
-		return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE)
-				.message("Could not connect to Mongo database");
+		return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message("Could not connect to Mongo database");
+	}
+
+	private void destroy(MongoClient mongoClient, MongoCursor<Document> documents)
+	{
+		try
+		{
+
+			if( documents != null )
+			{
+				documents.close();
+			}
+			if( mongoClient != null )
+			{
+				mongoClient.close();
+			}
+		}
+		catch ( Exception e )
+		{
+			e.printStackTrace();
+		}
+	}
+
+	private void destroy(MongoClient mongoClient)
+	{
+		try
+		{
+			if( mongoClient != null )
+			{
+				mongoClient.close();
+			}
+		}
+		catch ( Exception e )
+		{
+			e.printStackTrace();
+		}
+	}
+
+	private void destroy(MongoCursor<Document> documents)
+	{
+		try
+		{
+			if( documents != null )
+			{
+				documents.close();
+			}
+		}
+		catch ( Exception e )
+		{
+			e.printStackTrace();
+		}
 	}
 
 	@Override
-	public Metadata getMetadata(DataSource ds) throws DataExtractionServiceException {
+	public Metadata getMetadata(DataSource ds) throws DataExtractionServiceException
+	{
 		MongoClient mongoClient = null;
 		Metadata metadata = null;
-		try {
+		try
+		{
+			final String dataSourceName = getConnectionParam(ds, PARAM_DATABASE_ID);
 			mongoClient = getDataBaseConnection(ds);
-			if (mongoClient != null) {
-				final String dataSourceName = getConnectionParam(ds, PARAM_DATABASE_ID);
-				try {
-					MongoDatabase mongoDatabase = mongoClient.getDatabase(dataSourceName);
-					MongoCursor<Document> document= mongoDatabase.listCollections().iterator();
-					if (document != null) {
-						metadata = metadataByConnection(mongoClient, dataSourceName);
-						if (metadata == null) {
-							throw new DataExtractionServiceException(new Problem().code("metadata error")
-									.message("meta data not found for connection."));
-						}
-					}
-				} catch (MongoSecurityException e) {
-					throw new DataExtractionServiceException(
-							new Problem().code("ERROR: Authentication Failed.").message(e.getMessage()));
-				} catch (MongoTimeoutException timeout) {
-					throw new DataExtractionServiceException(
-							new Problem().code("ERROR: Authentication Failed.").message(timeout.getMessage()));
-				}catch(MongoException me){
-					throw new DataExtractionServiceException(
-							new Problem().code("ERROR: Authentication Failed.").message(me.getMessage()));
-				}
+			if( mongoClient != null )
+			{
+				metadata = metadataByConnection(mongoClient, dataSourceName);
 			}
-		} finally {
+		}
+		catch ( MongoSecurityException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		catch ( MongoTimeoutException timeout )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(timeout.getMessage()));
+		}
+		catch ( MongoException me )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(me.getMessage()));
+		}
+		catch ( IllegalArgumentException iae )
+		{
+			throw new DataExtractionServiceException(new Problem().code("failure").message(iae.getMessage()));
+		}
+		finally
+		{
 			destroy(mongoClient);
 		}
 		return metadata;
 	}
 
-	private int getCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
+	public int getCountRows(DataSource ds,String tableName) throws DataExtractionServiceException
+	{
 		int countRows = 0;
 		MongoClient mongoClient = null;
-		try {
+		try
+		{
 			mongoClient = getDataBaseConnection(ds);
-			if (mongoClient != null) {
+			if( mongoClient != null )
+			{
 				String databaseName = getConnectionParam(ds, PARAM_DATABASE_ID);
-				String[] dataSourceDocumet = StringUtils.split(tableName, ".");
-				if (dataSourceDocumet.length == 2 ) {
+				String[] dataSourceDocumet = databaseName.split(".");
+				if( dataSourceDocumet.length == 2 )
+				{
 					databaseName = dataSourceDocumet[0];
 					tableName = dataSourceDocumet[1];
 				}
 				countRows = getCountRows(tableName, mongoClient, databaseName);
 			}
-		} catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
-		} finally {
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
 			destroy(mongoClient);
 		}
 		return countRows;
 
 	}
 
-
-	private MongoClient getDataBaseConnection(DataSource ds) throws DataExtractionServiceException {
-		if (ds == null) {
-			throw new DataExtractionServiceException(
-					new Problem().code("datasource error").message("datasource is null"));
+	private MongoClient getDataBaseConnection(DataSource ds) throws DataExtractionServiceException
+	{
+		if( ds == null )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownDataSource").message("datasource is null."));
 		}
 
 		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
@@ -201,135 +298,183 @@ public final class MongoDataSourceAdapter extends DataSourceAdapter {
 	}
 
 	@SuppressWarnings("deprecation")
-	private MongoClient getDataBaseConnection(String hostName, int portNumber, String databaseName, String userName,
-			String password) {
+	private MongoClient getDataBaseConnection(String hostName, int portNumber, String databaseName, String userName, String password)
+	{
 		MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
-		optionsBuilder.readPreference( ReadPreference.primary() );
+		optionsBuilder.readPreference(ReadPreference.primary());
 		MongoClientOptions clientOptions = optionsBuilder.build();
-		
 		ServerAddress serverAddress = new ServerAddress(hostName, portNumber);
 		MongoCredential mongoCredential = MongoCredential.createScramSha1Credential(userName, databaseName, password.toCharArray());
-		
-		return new MongoClient(serverAddress, Arrays.asList(mongoCredential),clientOptions);
+		return new MongoClient(serverAddress, Arrays.asList(mongoCredential), clientOptions);
 	}
 
-	private Metadata metadataByConnection(MongoClient mongoClient, String schemaName)
-			throws DataExtractionServiceException {
+	private Metadata metadataByConnection(MongoClient mongoClient, String databaseName) throws DataExtractionServiceException
+	{
 
 		Metadata metadata = new Metadata();
 		List<String> dataSourceList = null;
-		try {
-			if (StringUtils.isNotBlank(schemaName)) {
-				if (schemaName.equals("all")) {
-					dataSourceList = getAllDatasourcesFromDatabase(mongoClient);
-				} else {
-					dataSourceList = new ArrayList<String>();
-					dataSourceList.add(schemaName);
-				}
-			} else {
-				throw new DataExtractionServiceException(new Problem().code("unknown database").message("database not found in connection params."));
+		MongoCursor<Document> documents = null;
+		try
+		{
+
+			if( StringUtils.isNotBlank(databaseName) )
+			{
+				dataSourceList = new ArrayList<String>();
+				dataSourceList.add(databaseName);
 			}
+			else
+			{
+				dataSourceList = getAllDatasourcesFromDatabase(mongoClient);
+			}
+
+			if( dataSourceList == null )
+			{
+				throw new IllegalArgumentException("Database '" + databaseName + "' not found.");
+			}
+
+			MongoDatabase mongoDatabase = mongoClient.getDatabase(databaseName);
+			documents = mongoDatabase.listCollections().iterator();
+			if( documents == null )
+			{
+				throw new IllegalArgumentException("No Documents found in database '" + databaseName + "'.");
+			}
+
 			List<NamedType> namedTypeObjectsList = new ArrayList<NamedType>();
-			for (String dataSource : dataSourceList) {
+			for (String dataSource : dataSourceList)
+			{
 				List<NamedType> tableList = getDatasourceRelatedTables(dataSource, mongoClient);
-				for (NamedType namedType : tableList) {
+				for (NamedType namedType : tableList)
+				{
 					if (!StringUtils.equals(namedType.getName().toString(), dataSource+".system")
 							&& !StringUtils.equals(namedType.getName().toString(), dataSource+".system.users")
 							&& !StringUtils.equals(namedType.getName().toString(), dataSource+".system.version")) {
-					Type entryType = entryType(Type.KindEnum.OBJECT);
-					namedType.getType().setEntryType(entryType);
-					List<NamedType> attributeListForColumns = getTableRelatedColumns(namedType.getName(), mongoClient);
-
-					entryType.setAttributes(attributeListForColumns);
-					namedTypeObjectsList.add(namedType);
-					metadata.setObjects(namedTypeObjectsList);
+						Type entryType = entryType(Type.KindEnum.OBJECT);
+						namedType.getType().setEntryType(entryType);
+						List<NamedType> attributeListForColumns = getTableRelatedColumns(namedType.getName(), mongoClient);
+						entryType.setAttributes(attributeListForColumns);
+						namedTypeObjectsList.add(namedType);
+						metadata.setObjects(namedTypeObjectsList);
 					}
 				}
 			}
-		}catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("metadata error.").message(e.getMessage()));
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			if( documents != null )
+			{
+				destroy(documents);
+			}
 		}
 		return metadata;
 	}
 
-	private List<String> getAllDatasourcesFromDatabase(MongoClient mongoClient) throws DataExtractionServiceException {
+	private List<String> getAllDatasourcesFromDatabase(MongoClient mongoClient) throws DataExtractionServiceException
+	{
 		List<String> schemaList = null;
 		MongoCursor<String> dbsCursor = null;
-		try {
+		try
+		{
 			dbsCursor = mongoClient.listDatabaseNames().iterator();
 			schemaList = new ArrayList<String>();
-			while (dbsCursor.hasNext()) {
+			while (dbsCursor.hasNext())
+			{
 				schemaList.add(dbsCursor.next());
 			}
-		} catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("Database Error").message(e.getMessage()));
-		} finally {
-			dbsCursor.close();
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			if( dbsCursor != null )
+			{
+				dbsCursor.close();
+			}
 		}
 		return schemaList;
 	}
 
-	private List<NamedType> getDatasourceRelatedTables(String schemaName, MongoClient mongoClient)
-			throws DataExtractionServiceException {
+	private List<NamedType> getDatasourceRelatedTables(String schemaName, MongoClient mongoClient) throws DataExtractionServiceException
+	{
 		MongoDatabase mongoDatabase = null;
 		MongoCursor<Document> document = null;
 		List<NamedType> tableList = new ArrayList<>();
-		try {
+		try
+		{
 			mongoDatabase = mongoClient.getDatabase(schemaName);
 			document = mongoDatabase.listCollections().iterator();
-			while (document.hasNext()) {
+			while (document.hasNext())
+			{
 				NamedType namedType = new NamedType();
 				namedType.setName(mongoDatabase.getName() + "." + document.next().get("name").toString());
 				Type type = new Type().kind(Type.KindEnum.LIST);
 				namedType.setType(type);
 				tableList.add(namedType);
 			}
-		} catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("Database Error").message(e.getMessage()));
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			destroy(document);
 		}
 		return tableList;
 	}
 
-	private List<NamedType> getTableRelatedColumns(String tableName, MongoClient mongoClient)
-			throws DataExtractionServiceException {
+	@SuppressWarnings("rawtypes")
+	private List<NamedType> getTableRelatedColumns(String tableName, MongoClient mongoClient) throws DataExtractionServiceException
+	{
 		MongoDatabase mongoDatabase = null;
 		List<NamedType> namedTypeList = null;
 		MongoCollection<Document> collection = null;
-		try {
+		try
+		{
 			String[] schemaName = tableName.split("\\.");
 			mongoDatabase = mongoClient.getDatabase(schemaName[0]);
 			collection = mongoDatabase.getCollection(schemaName[1]);
 			MapReduceIterable iterable = getDocumentFieldNames(collection);
 			List<String> fieldsSet = new ArrayList<String>();
-			for (Object obj : iterable) {
+			for (Object obj : iterable)
+			{
 				fieldsSet.add(((Document) obj).get("_id").toString());
 			}
 			namedTypeList = getFieldsNamesAndDataTypeList(fieldsSet, collection);
-		} catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("Database Error").message(e.getMessage()));
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
 		}
 		return namedTypeList;
 	}
 
-	private MapReduceIterable getDocumentFieldNames(MongoCollection<Document> collection) {
+	@SuppressWarnings("rawtypes")
+	private MapReduceIterable getDocumentFieldNames(MongoCollection<Document> collection)
+	{
 		String map = "function() {   \n" + "for (var key in this)\n" + "{ emit(key, null); }; } ";
 		String reduce = " function(key, stuff) { return null; }";
 		return collection.mapReduce(map, reduce);
 	}
 
-	private List<NamedType> getFieldsNamesAndDataTypeList(List<String> fieldsSet,
-			MongoCollection<Document> collection) {
+	private List<NamedType> getFieldsNamesAndDataTypeList(List<String> fieldsSet, MongoCollection<Document> collection)
+	{
 		List<NamedType> namedTypeList = new ArrayList<>();
-		for (String field : fieldsSet) {
+		for (String field : fieldsSet)
+		{
 			NamedType namedType = new NamedType();
 			DBObject query = new BasicDBObject();
 			query.put(field, new BasicDBObject("$ne", ""));
-			FindIterable<Document> cursor = collection.find((Bson) query).projection(Projections.include(field))
-					.limit(1);
+			FindIterable<Document> cursor = collection.find((Bson) query).projection(Projections.include(field)).limit(1);
 			List<Document> documentsList = cursor.into(new LinkedList<>());
-			if (documentsList.size() == 0)
-				continue;
-			if (documentsList.get(0).get(field) != null) {
+			if( documentsList.size() == 0 ) continue;
+			if( documentsList.get(0).get(field) != null )
+			{
 				namedType = getDocFieldsAndValues(documentsList, field);
 				namedTypeList.add(namedType);
 			}
@@ -338,15 +483,18 @@ public final class MongoDataSourceAdapter extends DataSourceAdapter {
 	}
 
 	@SuppressWarnings("unchecked")
-	private NamedType getDocFieldsAndValues(List<Document> documentsList, String field) {
+	private NamedType getDocFieldsAndValues(List<Document> documentsList, String field)
+	{
 
 		NamedType namedType = new NamedType();
 		String type = documentsList.get(0).get(field).getClass().getSimpleName();
 		namedType.setName(field);
 
-		if (type.equals("ArrayList") || type.equals("Object")) {
+		if( type.equals("ArrayList") || type.equals("Object") )
+		{
 
-			for (Document document : documentsList) {
+			for (Document document : documentsList)
+			{
 				List<Object> docFieldList = (ArrayList<Object>) document.get(field);
 
 				namedType.setType(entryType(Type.KindEnum.LIST));
@@ -355,28 +503,35 @@ public final class MongoDataSourceAdapter extends DataSourceAdapter {
 
 				String docType = docFieldList.get(0).getClass().getSimpleName().toString();
 
-				if (StringUtils.equals("Document", docType)) {
+				if( StringUtils.equals("Document", docType) )
+				{
 					List<NamedType> attributeListForColumns = getSubDocFieldsAndValues((Document) docFieldList.get(0));
 					entryType.setAttributes(attributeListForColumns);
-				} else {
+				}
+				else
+				{
 					namedType.setName(field);
 					namedType.setType(entryType(Type.KindEnum.LIST));
-					namedType.getType()
-							.setEntryType(new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(docType)));
+					namedType.getType().setEntryType(new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(docType)));
 				}
 			}
-		} else {
+		}
+		else
+		{
 			namedType.setType(getTypeForColumn(type));
 		}
 		return namedType;
 	}
 
-	private List<NamedType> getSubDocFieldsAndValues(Document subDocument) {
+	private List<NamedType> getSubDocFieldsAndValues(Document subDocument)
+	{
 		List<NamedType> attributeListForColumns = new ArrayList<>();
-		for (Map.Entry<String, Object> set : subDocument.entrySet()) {
+		for (Map.Entry<String, Object> set : subDocument.entrySet())
+		{
 			NamedType namedType = new NamedType();
 			namedType.setName(set.getKey());
-			if (set.getValue() != null) {
+			if( set.getValue() != null )
+			{
 				Object object = subDocument.get(set.getKey());
 				namedType.setType(getTypeForColumn(object.getClass().getSimpleName()));
 			}
@@ -385,33 +540,45 @@ public final class MongoDataSourceAdapter extends DataSourceAdapter {
 		return attributeListForColumns;
 	}
 
-	private Type entryType(KindEnum kindEnum) {
+	private Type entryType(KindEnum kindEnum)
+	{
 		return new Type().kind(kindEnum);
 	}
 
-	private Type getTypeForColumn(String type) {
+	private Type getTypeForColumn(String type)
+	{
 		return entryType(Type.KindEnum.VALUE).dataType(getDataType(type));
 	}
 
-	private DataTypeEnum getDataType(String dataType) {
+	private DataTypeEnum getDataType(String dataType)
+	{
 		DataTypeEnum dataTypeEnum = null;
-		if (dataType.equals("INT") || dataType.equals("number") || dataType.equals("Number")
-				|| dataType.equals("Integer") || dataType.equals("INTEGER")) {
+		if( dataType.equals("INT") || dataType.equals("number") || dataType.equals("Number") || dataType.equals("Integer") || dataType.equals("INTEGER") )
+		{
 			dataTypeEnum = Type.DataTypeEnum.INTEGER;
-		} else if (dataType.equals("Decimal")) {
+		}
+		else if( dataType.equals("Decimal") )
+		{
 			dataTypeEnum = Type.DataTypeEnum.DECIMAL;
-		} else if (dataType.equals("Float") || dataType.equals("Double") || dataType.equals("Numeric")
-				|| dataType.equals("Long") || dataType.equals("Real")) {
+		}
+		else if( dataType.equals("Float") || dataType.equals("Double") || dataType.equals("Numeric") || dataType.equals("Long") || dataType.equals("Real") )
+		{
 			dataTypeEnum = Type.DataTypeEnum.FLOAT;
-		} else if (dataType.equals("String")) {
+		}
+		else if( dataType.equals("String") )
+		{
 			dataTypeEnum = Type.DataTypeEnum.STRING;
-		} else if (dataType.equals("Boolean")) {
+		}
+		else if( dataType.equals("Boolean") )
+		{
 			dataTypeEnum = Type.DataTypeEnum.BOOLEAN;
 		}
 		return dataTypeEnum;
 	}
 
-	private int getCountRows(String collectionName, MongoClient mongoClient, String dataSourceName) {
+	@SuppressWarnings("rawtypes")
+	private int getCountRows(String collectionName, MongoClient mongoClient, String dataSourceName)
+	{
 		MongoDatabase mongoDatabase = mongoClient.getDatabase(dataSourceName);
 		MongoCollection collection = mongoDatabase.getCollection(collectionName);
 		Long collectionCount = collection.count();
@@ -619,7 +786,7 @@ public final class MongoDataSourceAdapter extends DataSourceAdapter {
  
 		Map< String , String > contextParams = getContextParams( adapterHome , JOB_NAME , dataSourceUser ,
 				
-				dataSourcePassword , tableName ,  getDataSourceColumnNames(ds, spec,".") , dataSourceHost , dataSourcePort ,
+				dataSourcePassword , tableName ,   getDataSourceColumnNames(ds, spec,".") , dataSourceHost , dataSourcePort ,
 				
 				databaseName , job.getOutputMessagingQueue() , String.valueOf(offset) , String.valueOf( limit )  ,
 				

@@ -21,7 +21,7 @@ import com.prifender.messaging.api.MessagingQueue;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.Problem;
 
-public class CassandraDataExtractionExecutor extends DataExtractionThread {
+public class CassandraDataExtractionExecutor extends DataSourceAdapter {
 
 	private static CassandraExtractionETLJobExecutor etlJobUtil;
 	

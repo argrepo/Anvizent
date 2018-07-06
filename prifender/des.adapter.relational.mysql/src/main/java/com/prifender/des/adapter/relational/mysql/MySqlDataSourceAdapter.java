@@ -59,6 +59,8 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 	public static final String TYPE_ID = "MySql";
     public static final String TYPE_LABEL = "MySQL";
     
+   
+    
     private static final DataSourceType TYPE = new DataSourceType()
         .id( TYPE_ID ).label( TYPE_LABEL )
         .addConnectionParamsItem( PARAM_HOST )
@@ -169,8 +171,8 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 			} else {
 				throw new DataExtractionServiceException(new Problem().code("Unknown database").message("Database not found in "+TYPE_ID +"database."));
 			}
-		}
-			
+		}	
+				
 		List<NamedType> namedTypeObjectsList = new ArrayList<NamedType>();
 		for (String dataSource : dataSourceList) {
 			List<NamedType> tableList = getDatasourceRelatedTables(con, dataSource);
@@ -196,9 +198,10 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 						pkFkConstraintList.add(constraint);
 					}
 				}
-				entryType.setConstraints(pkFkConstraintList);
+				entryType.setConstraints(pkFkConstraintList); 
 				namedType.setName(dataSource + "." + namedType.getName());
 				namedTypeObjectsList.add(namedType);
+				break;
 			}
 			metadata.setObjects(namedTypeObjectsList);
 		}
@@ -207,16 +210,14 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 
 	private List<NamedType> getDatasourceRelatedTables(Connection con, String schemaName) throws SQLException {
 		List<NamedType> tableList = new ArrayList<>();
-		PreparedStatement prepareStatement = null;
 		ResultSet resultSet = null;
 		try {
-			String tablesQuery = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE in('BASE TABLE','VIEW') AND TABLE_SCHEMA=? order by TABLE_NAME";
-			prepareStatement = con.prepareStatement(tablesQuery);
-			prepareStatement.setString(1, schemaName);
-			resultSet = prepareStatement.executeQuery();
+			 String[] types = { "TABLE" };
+			resultSet= con.getMetaData()
+			         .getTables(schemaName, null,"%", types);
 			while (resultSet.next()) {
 				NamedType namedType = new NamedType();
-				namedType.setName(resultSet.getString(1));
+				namedType.setName(resultSet.getString(3));
 				Type type = new Type().kind(Type.KindEnum.LIST);
 				namedType.setType(type);
 				tableList.add(namedType);
@@ -227,7 +228,7 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 				}
 			});
 		} finally {
-			closeSqlObject(resultSet, prepareStatement);
+			closeSqlObject(resultSet);
 		}
 
 		return tableList;
@@ -236,23 +237,19 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 	private List<NamedType> getTableRelatedColumns(Connection con, String schemaName, String tableName)
 			throws SQLException, DataExtractionServiceException {
 		ResultSet resultSet = null;
-		PreparedStatement preparedStatement = null;
-		String columnsQuery = null;
 		List<NamedType> attributeList = new ArrayList<NamedType>();
 		try {
-			columnsQuery = "SELECT COLUMN_NAME,DATA_TYPE, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=? AND TABLE_SCHEMA=? ";
-			preparedStatement = con.prepareStatement(columnsQuery);
-			preparedStatement.setString(1, tableName);
-			preparedStatement.setString(2, schemaName);
-			resultSet = preparedStatement.executeQuery();
+			resultSet= con.getMetaData()
+			         .getColumns(schemaName,null, tableName,"%");
 			while (resultSet.next()) {
+				String columnName = resultSet.getString("COLUMN_NAME");
 				NamedType attributeForColumn = new NamedType();
-				attributeForColumn.setName(resultSet.getString(1));
-			 	Type columnInfo = getColumnInfo(con,schemaName,tableName,resultSet.getString(1));
+				attributeForColumn.setName(columnName);
+			 	Type columnInfo = getColumnInfo(con,schemaName,tableName,columnName);
 				if(columnInfo != null)
 				{ 
 					Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE)
-												   .dataType(getDataType(resultSet.getString(2).toUpperCase())) 
+												   .dataType(getDataType(columnName.toUpperCase())) 
 												   .nullable(columnInfo.getNullable())
 												   .autoIncrement(columnInfo.getAutoIncrement())
 												   .size(columnInfo.getSize());
@@ -261,7 +258,7 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 				 }
 			}
 		} finally {
-			closeSqlObject(resultSet, preparedStatement);
+			closeSqlObject(resultSet);
 		}
 
 		return attributeList;
@@ -351,9 +348,7 @@ public final class MySqlDataSourceAdapter extends DataSourceAdapter {
 		Statement statement = null;
 		try {
 			if (con != null) {
-				String sql = "select schema_name from information_schema.SCHEMATA where schema_name not in('information_schema') order by schema_name";
-				statement = con.createStatement();
-				resultSet = statement.executeQuery(sql);
+				resultSet= con.getMetaData().getCatalogs();
 				while (resultSet.next()) {
 					schemaList.add(resultSet.getString(1));
 				}
