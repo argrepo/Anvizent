@@ -32,13 +32,13 @@ import com.prifender.des.transform.Transformations;
 
 public abstract class DataExtractionService
 {
-    private final List<DataSource> dataSources = new ArrayList<>();
+    private List<DataSource> dataSources;
     private final List<DataExtractionJob> dataExtractionJobs = new ArrayList<>();
     private final Transformations transformations = new Transformations();
     
     public abstract List<DataSourceType> getSupportedDataSourceTypes();
     
-    public synchronized DataSourceType getSupportedDataSourceType( final String id )
+    public DataSourceType getSupportedDataSourceType( final String id )
     {
         for( final DataSourceType dst : getSupportedDataSourceTypes() )
         {
@@ -51,34 +51,58 @@ public abstract class DataExtractionService
         return null;
     }
     
-    public synchronized List<DataSource> getDataSources()
+    public List<DataSource> getDataSources()
     {
+        loadDataSourcesIfNecessary();
+        
         return this.dataSources;
     }
-
-    public synchronized DataSource getDataSource( final String id )
+    
+    private synchronized void loadDataSourcesIfNecessary()
     {
-        for( final DataSource ds : this.dataSources )
+        if( this.dataSources == null )
         {
-            if( ds.getId().equals( id ) )
+            this.dataSources = loadDataSources();
+        }
+    }
+
+    protected List<DataSource> loadDataSources()
+    {
+        return new ArrayList<>();
+    }
+
+    public DataSource getDataSource( final String id )
+    {
+        loadDataSourcesIfNecessary();
+        
+        synchronized( this.dataSources )
+        {
+            for( final DataSource ds : this.dataSources )
             {
-                return ds;
+                if( ds.getId().equals( id ) )
+                {
+                    return ds;
+                }
             }
         }
         
         return null;
     }
 
-    public synchronized DataSource addDataSource( final DataSource ds ) throws DataExtractionServiceException
+    public DataSource addDataSource( final DataSource ds ) throws DataExtractionServiceException
     {
         validateDataSource( ds );
+        loadDataSourcesIfNecessary();
         
-        this.dataSources.add( ds );
+        synchronized( this.dataSources )
+        {
+            this.dataSources.add( ds );
+        }
         
         return ds;
     }
     
-    public synchronized void updateDataSource( final String id, final DataSource ds ) throws DataExtractionServiceException
+    public void updateDataSource( final String id, final DataSource ds ) throws DataExtractionServiceException
     {
         final DataSource current = getDataSource( id );
         
@@ -91,12 +115,15 @@ public abstract class DataExtractionService
         
         ds.setId( id );
         
-        for( int i = 0, n = this.dataSources.size(); i < n; i++ )
+        synchronized( this.dataSources )
         {
-            if( this.dataSources.get( i ) == current )
+            for( int i = 0, n = this.dataSources.size(); i < n; i++ )
             {
-                this.dataSources.set( i, ds );
-                break;
+                if( this.dataSources.get( i ) == current )
+                {
+                    this.dataSources.set( i, ds );
+                    break;
+                }
             }
         }
     }
@@ -151,7 +178,7 @@ public abstract class DataExtractionService
             
             if( cpValue == null || cpValue.length() == 0 )
             {
-                if( cpDef.getRequired() )
+                if( cpDef.getRequired() && cpDef.getDefaultValue() == null )
                 {
                     throw new DataExtractionServiceException( requiredConnectionParam( dstId, cpId ) );
                 }
@@ -205,24 +232,27 @@ public abstract class DataExtractionService
         {
             final String cpId = cpDef.getId();
             
-            if( cpDef.getRequired() && ! specifiedParams.contains( cpId ) )
+            if( cpDef.getRequired() && cpDef.getDefaultValue() == null && ! specifiedParams.contains( cpId ) )
             {
                 throw new DataExtractionServiceException( requiredConnectionParam( dstId, cpId ) );
             }
         }
     }
 
-    public synchronized void deleteDataSource( final String id )
+    public void deleteDataSource( final String id )
     {
         final DataSource ds = getDataSource( id );
         
         if( ds != null )
         {
-            this.dataSources.remove( ds );
+            synchronized( this.dataSources )
+            {
+                this.dataSources.remove( ds );
+            }
         }
     }
     
-    public synchronized ConnectionStatus testConnection( final String id ) throws DataExtractionServiceException
+    public ConnectionStatus testConnection( final String id ) throws DataExtractionServiceException
     {
         final DataSource ds = getDataSource( id );
         
@@ -236,7 +266,7 @@ public abstract class DataExtractionService
     
     protected abstract ConnectionStatus testConnection( DataSource ds ) throws DataExtractionServiceException;
     
-    public synchronized Metadata getMetadata( final String id ) throws DataExtractionServiceException
+    public Metadata getMetadata( final String id ) throws DataExtractionServiceException
     {
         final DataSource ds = getDataSource( id );
         
@@ -250,25 +280,28 @@ public abstract class DataExtractionService
     
     protected abstract Metadata getMetadata( DataSource ds ) throws DataExtractionServiceException;
 
-    public synchronized List<DataExtractionJob> getDataExtractionJobs()
+    public List<DataExtractionJob> getDataExtractionJobs()
     {
         return this.dataExtractionJobs;
     }
     
-    public synchronized DataExtractionJob getDataExtractionJob( final String id )
+    public DataExtractionJob getDataExtractionJob( final String id )
     {
-        for( final DataExtractionJob job : this.dataExtractionJobs )
+        synchronized( this.dataExtractionJobs )
         {
-            if( job.getId().equals( id ) )
+            for( final DataExtractionJob job : this.dataExtractionJobs )
             {
-                return job;
+                if( job.getId().equals( id ) )
+                {
+                    return job;
+                }
             }
         }
         
         return null;
     }
 
-    public final synchronized DataExtractionJob startDataExtractionJob( final DataExtractionSpec spec ) throws DataExtractionServiceException
+    public final DataExtractionJob startDataExtractionJob( final DataExtractionSpec spec ) throws DataExtractionServiceException
     {
         if( spec == null )
         {
@@ -290,21 +323,28 @@ public abstract class DataExtractionService
             throw new IllegalStateException();
         }
         
-        this.dataExtractionJobs.add( job );
+        synchronized( this.dataExtractionJobs )
+        {
+            this.dataExtractionJobs.add( job );
+        }
         
         return job;
     }
     
     protected abstract DataExtractionJob startDataExtractionJob( DataSource ds, DataExtractionSpec spec ) throws DataExtractionServiceException;
     
-    public final synchronized void deleteDataExtractionJob( final String id ) throws DataExtractionServiceException
+    public final void deleteDataExtractionJob( final String id ) throws DataExtractionServiceException
     {
         final DataExtractionJob job = getDataExtractionJob( id );
         
         if( job != null )
         {
             deleteDataExtractionJob( job );
-            this.dataExtractionJobs.remove( job );
+            
+            synchronized( this.dataExtractionJobs )
+            {
+                this.dataExtractionJobs.remove( job );
+            }
         }
     }
 
@@ -314,9 +354,12 @@ public abstract class DataExtractionService
     {
         final List<TransformationDef> tdefs = new ArrayList<TransformationDef>();
         
-        for( final Transformation t : this.transformations.list() )
+        synchronized( this.transformations )
         {
-            tdefs.add( new TransformationDef().name( t.getName() ).description( t.getDescription() ) );
+            for( final Transformation t : this.transformations.list() )
+            {
+                tdefs.add( new TransformationDef().name( t.getName() ).description( t.getDescription() ) );
+            }
         }
         
         return tdefs;
@@ -383,7 +426,7 @@ public abstract class DataExtractionService
         {
             final char ch = label.charAt( i );
             
-            if( ( ch >= '0' && ch <= '9' ) || ( ch >= 'A' && ch <= 'Z' ) || ( ch >= 'a' && ch <= 'z' ) || ch == '-' || ch == '_' || ch == '.' || ch == '~' || ch == '.' )
+            if( ( ch >= '0' && ch <= '9' ) || ( ch >= 'A' && ch <= 'Z' ) || ( ch >= 'a' && ch <= 'z' ) || ch == '-' || ch == '_' || ch == '~' )
             {
                 buf.append( ch );
             }

@@ -1,19 +1,24 @@
 package com.prifender.des.adapter.hierarchical.hdfsavro;
-import static com.prifender.des.util.DatabaseUtil.getDataSourceColumnNames;
-import static com.prifender.des.util.DatabaseUtil.getDataType;
-import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
-import static com.prifender.des.util.DatabaseUtil.generateTaskSampleSize;
+
 import static com.prifender.des.util.DatabaseUtil.createDir;
+import static com.prifender.des.util.DatabaseUtil.getConvertedDate;
+import static com.prifender.des.util.DatabaseUtil.getDataType;
+import static com.prifender.des.util.DatabaseUtil.getFormulateDataSourceColumnNames;
 import static com.prifender.des.util.DatabaseUtil.getUUID;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.FileReader;
@@ -24,14 +29,20 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.mapred.FsInput;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.oro.text.GlobCompiler;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import com.prifender.des.DataExtractionServiceException;
+import com.prifender.des.controller.DataExtractionContext;
+import com.prifender.des.controller.DataExtractionThread;
 import com.prifender.des.controller.DataSourceAdapter;
 import com.prifender.des.model.ConnectionParamDef;
 import com.prifender.des.model.ConnectionParamDef.TypeEnum;
@@ -44,119 +55,203 @@ import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
 import com.prifender.des.model.NamedType;
 import com.prifender.des.model.Problem;
-import com.prifender.des.model.Type; 
+import com.prifender.des.model.Type;
 
+/**
+ * The HDFSAvroDataSourceAdapter Component is a file system , implements
+ * 
+ * Test connection establishment based on datasource
+ * 
+ * Fetch metadata based on datasource
+ * 
+ * Start data extraction job based on datasource and data extraction spec
+ * 
+ * @author Mahender Alaveni
+ * 
+ * @version 1.1.0
+ * 
+ * @since 2018-04-06
+ */
 @Component
-public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
+public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter
+{
 
-	@Value( "${des.home}" )
+	@Value("${des.home}")
 	private String desHome;
- 
-	private static final String JOB_NAME = "local_project.prifender_hdfs_avro_v1_0_1.Prifender_HDFS_Avro_v1";
-	
-	private static final String DEPENDENCY_JAR = "prifender_hdfs_avro_v1_0_1.jar";
-	
-	private static final int  MIN_THRESHOULD_ROWS = 100000;		
-	 
-	private static final int  MAX_THRESHOULD_ROWS = 200000;	
-	
+
+	@Value("${scheduling.taskStatusQueue}")
+	private String taskStatusQueueName;
+
+	private static final String JOB_NAME = "local_project.prifender_hdfs_avro_m2_v1_0_1.Prifender_HDFS_Avro_M2_v1";
+
+	private static final String DEPENDENCY_JAR = "prifender_hdfs_avro_m2_v1_0_1.jar";
+
 	public static final String TYPE_ID = "HDFSAvro";
-	
+
 	public static final String TYPE_LABEL = "Apache Avro";
 	// File
 
-    public static final String PARAM_FILE_ID = "File";
-    public static final String PARAM_FILE_LABEL = "File";
-    public static final String PARAM_FILE_DESCRIPTION = "The path of the file";
-    
-    public static final ConnectionParamDef PARAM_FILE 
-        = new ConnectionParamDef().id( PARAM_FILE_ID ).label( PARAM_FILE_LABEL ).description( PARAM_FILE_DESCRIPTION ).type( TypeEnum.STRING );
-    
-   // Dfs( Distributed File System ) Replication
+	public static final String PARAM_FILE_ID = "File";
+	public static final String PARAM_FILE_LABEL = "File";
+	public static final String PARAM_FILE_DESCRIPTION = "The path of the file";
 
-    public static final String PARAM_DFS_REPLICATION_ID = "DfsReplication";
-    public static final String PARAM_DFS_REPLICATION_LABEL = "Dfs( Distributed File System ) Replication";
-    public static final String PARAM_DFS_REPLICATION_DESCRIPTION = "The dfs replication for File System";
-    
-    public static final ConnectionParamDef PARAM_DFS_REPLICATION
-        = new ConnectionParamDef().id( PARAM_DFS_REPLICATION_ID ).label( PARAM_DFS_REPLICATION_LABEL ).description( PARAM_DFS_REPLICATION_DESCRIPTION ).type( TypeEnum.INTEGER );
-    
-	
+	public static final ConnectionParamDef PARAM_FILE = new ConnectionParamDef().id(PARAM_FILE_ID).label(PARAM_FILE_LABEL).description(PARAM_FILE_DESCRIPTION).type(TypeEnum.STRING);
+
+	// File Regular Expression
+
+	public static final String PARAM_FILE_REG_EXP_ID = "FileRegExp";
+	public static final String PARAM_FILE_REG_EXP_LABEL = "File Regular Expression";
+	public static final String PARAM_FILE_REG_EXP_DESCRIPTION = "The file regular expression";
+
+	public static final ConnectionParamDef PARAM_FILE_REG_EXP = new ConnectionParamDef().id(PARAM_FILE_REG_EXP_ID).label(PARAM_FILE_REG_EXP_LABEL).description(PARAM_FILE_REG_EXP_DESCRIPTION).type(TypeEnum.STRING).required(false);
+
 	Configuration config;
-	
-	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label(TYPE_LABEL)
-			.addConnectionParamsItem(PARAM_HOST)
-			.addConnectionParamsItem(PARAM_PORT)
-			.addConnectionParamsItem(PARAM_USER)
-			.addConnectionParamsItem(PARAM_DFS_REPLICATION)
-	        .addConnectionParamsItem(PARAM_FILE);
+
+	private static final DataSourceType TYPE = new DataSourceType().id(TYPE_ID).label(TYPE_LABEL).addConnectionParamsItem(PARAM_HOST).addConnectionParamsItem(PARAM_PORT).addConnectionParamsItem(PARAM_USER).addConnectionParamsItem(PARAM_FILE).addConnectionParamsItem(PARAM_FILE_REG_EXP);
 
 	@Override
-	public DataSourceType getDataSourceType() {
+	public DataSourceType getDataSourceType()
+	{
 		return TYPE;
 	}
 
 	@Override
-	public ConnectionStatus testConnection(final DataSource ds) throws DataExtractionServiceException {
-		Path path = null;
-		try {
-			path = getDataBaseConnection(ds);
-			if (path != null) {
-				return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("HDFS Avro connection successfully established.");
+	public ConnectionStatus testConnection(final DataSource ds) throws DataExtractionServiceException
+	{
+		FileSystem fileSystem = null;
+		try
+		{
+			fileSystem = getDataBaseConnection(ds);
+			if( fileSystem != null )
+			{
+				final Path path = new Path(getConnectionParam(ds, PARAM_FILE_ID));
+				final String pattern = getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+				List<Path> pathList = getFilesPathList(fileSystem, path, pattern);
+				if( pathList != null && pathList.size() > 0 )
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.SUCCESS).message("HDFS Avro connection successfully established.");
+				}
+				else
+				{
+					return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message("File's not found in a given file regular expression '" + pattern + "' or file path.");
+				}
 			}
-		} catch (ClassNotFoundException | SQLException e) {
+		}
+		catch ( ClassNotFoundException | SQLException | IOException | InterruptedException | URISyntaxException e )
+		{
 			return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
-		}catch (IOException e) {
-			return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message(e.getMessage());
-		} finally {
-			destroy(config);
+		}
+		finally
+		{
+			destroy(config, fileSystem, null);
 		}
 		return new ConnectionStatus().code(ConnectionStatus.CodeEnum.FAILURE).message("Could not connect to HDFS Avro.");
 	}
-	
-	public void destroy(Configuration config){
-		if(config != null){
-			config.clear();
+
+	public void destroy(Configuration config, FileSystem fileSystem, SeekableInput seekableInput)
+	{
+		if( config != null )
+		{
+			try
+			{
+				if( fileSystem != null )
+				{
+					fileSystem.close();
+				}
+				if( seekableInput != null )
+				{
+					seekableInput.close();
+				}
+				if( config != null )
+				{
+					config.clear();
+				}
+
+			}
+			catch ( IOException e )
+			{
+				e.printStackTrace();
+			}
 		}
 	}
 
 	@Override
-	public Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException {
+	public Metadata getMetadata(final DataSource ds) throws DataExtractionServiceException
+	{
 		Metadata metadata = null;
-		Path path = null;
-		try {
-				path = getDataBaseConnection(ds);
-				final String filePath = getConnectionParam(ds, PARAM_FILE_ID);
- 
-				metadata = metadataByConnection(path,filePath);
-			if (metadata == null) {
-				throw new DataExtractionServiceException(new Problem().code("metadata error").message("meta data not found for connection."));
-			}
-		} catch (ClassNotFoundException | SQLException | IOException e) {
-			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
-		} finally {
-			destroy(config);
+		FileSystem fileSystem = null;
+		try
+		{
+			fileSystem = getDataBaseConnection(ds);
+			final String filePath = getConnectionParam(ds, PARAM_FILE_ID);
+			final String fileRegExp = getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+			metadata = metadataByConnection(fileSystem, filePath, fileRegExp);
+		}
+		catch ( ClassNotFoundException | SQLException | IOException | InterruptedException | URISyntaxException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			destroy(config, fileSystem, null);
 		}
 		return metadata;
 	}
+	
+	@Override
+	public int getCountRows(DataSource ds,  DataExtractionSpec spec) throws DataExtractionServiceException
+	{
 
-	public Path getDataBaseConnection(DataSource ds)
-			throws SQLException, ClassNotFoundException, DataExtractionServiceException, IOException {
-		if (ds == null) {
-			throw new DataExtractionServiceException(
-					new Problem().code("datasource error").message("datasource is null"));
+		int objectCount = 0;
+		Map<String, Integer> csvFilesMap = null;
+		try
+		{
+			String tableName = spec.getCollection();
+			if( spec.getScope().equals(DataExtractionSpec.ScopeEnum.SAMPLE) )
+			{
+				objectCount = (int) getFilesSize(ds, tableName);
+			}
+			else
+			{
+				csvFilesMap = getFilesList(ds, tableName);
+
+				for (Map.Entry<String, Integer> entry : csvFilesMap.entrySet())
+				{
+					objectCount += entry.getValue();
+				}
+			}
 		}
- 
-		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
-		final String portNumber = getConnectionParam(ds, PARAM_PORT_ID);
-		final String dfsReplication = getConnectionParam(ds, PARAM_DFS_REPLICATION_ID);
-		final String filePath = getConnectionParam(ds, PARAM_FILE_ID);
- 
-		return getDataBaseConnection(hostName, portNumber, dfsReplication, filePath);
+		catch ( FileNotFoundException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownFile").message(e.getMessage()));
+		}
+		catch ( IOException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownFile").message(e.getMessage()));
+		}
+		return objectCount;
+	
 	}
 
-	public Path getDataBaseConnection(String hostName, String port, String dfsReplication, String filePath )
-			throws SQLException, ClassNotFoundException, IOException {
+	private FileSystem getDataBaseConnection(DataSource ds) throws SQLException, ClassNotFoundException, DataExtractionServiceException, IOException, InterruptedException, URISyntaxException
+	{
+		if( ds == null )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownDataSource").message("datasource is null"));
+		}
+
+		final String hostName = getConnectionParam(ds, PARAM_HOST_ID);
+		final String portNumber = getConnectionParam(ds, PARAM_PORT_ID);
+		final String filePath = getConnectionParam(ds, PARAM_FILE_ID);
+		final String user = getConnectionParam(ds, PARAM_USER_ID);
+
+		return getDataBaseConnection(hostName, portNumber, filePath, user);
+	}
+
+	private FileSystem getDataBaseConnection(String hostName, String por, String filePath, String user) throws SQLException, ClassNotFoundException, IOException, InterruptedException, URISyntaxException
+	{
+
+		FileSystem fileSystem = null;
 
 		File file = new File(".");
 		System.getProperties().put("hadoop.home.dir", file.getAbsolutePath());
@@ -165,44 +260,138 @@ public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
 
 		config = new Configuration();
 		config.set("fs.defaultFS", "hdfs://" + hostName);
-		config.setInt("dfs.replication", Integer.valueOf(dfsReplication));
 		config.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
 		config.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-		Path path = new Path(filePath);
-		return path;
+
+		UserGroupInformation.setConfiguration(config);
+
+		if( StringUtils.isBlank(user) )
+		{
+			fileSystem = FileSystem.get(config);
+		}
+		else
+		{
+			System.setProperty("HADOOP_USER_NAME", user);
+			fileSystem = FileSystem.get(new java.net.URI(config.get("fs.defaultFS")), config, user);
+		}
+
+		return fileSystem;
 	}
 
-	public Metadata metadataByConnection(Path path,String fileName) throws DataExtractionServiceException, IOException {
+	public Metadata metadataByConnection(FileSystem fileSystem, String fileName, String fileRegExp) throws DataExtractionServiceException, IOException
+	{
 		Metadata metadata = new Metadata();
-		List<String> fileNameList = new ArrayList<>();
+		List<Path> filesList = null;
 		FileReader<GenericRecord> fileReader = null;
-		try { 
-			
-			if(path != null){
-				fileNameList.add(fileName);
-			}
-			SeekableInput input = new FsInput(path, config);
-		    DatumReader<GenericRecord> reader = new GenericDatumReader<GenericRecord>();
-		    fileReader = DataFileReader.openReader(input, reader);
+		SeekableInput input = null;
+		try
+		{
+			Path path = new Path(fileName);
+			filesList = getFilesPathList(fileSystem, path, fileRegExp);
 			List<NamedType> namedTypeObjectsList = new ArrayList<NamedType>();
-			List<NamedType> fNameHeaderList = getFileNameFromList(fileName);
-			for (NamedType namedType : fNameHeaderList) {
-				Type entryType = new Type().kind(Type.KindEnum.OBJECT);
-				namedType.getType().setEntryType(entryType);
-				List<NamedType> attributeListForColumns = getColumnsFromFile(fileReader);
-				entryType.setAttributes(attributeListForColumns);
-				namedTypeObjectsList.add(namedType);
+			for (Path file : filesList)
+			{
+				input = new FsInput(file, config);
+				DatumReader<GenericRecord> reader = new GenericDatumReader<GenericRecord>();
+				fileReader = DataFileReader.openReader(input, reader);
+				/* For Sequence files we are showing folder path */
+				List<NamedType> fNameHeaderList = getFileNameFromList(fileName);
+				for (NamedType namedType : fNameHeaderList)
+				{
+					Type entryType = new Type().kind(Type.KindEnum.OBJECT);
+					namedType.getType().setEntryType(entryType);
+					List<NamedType> attributeListForColumns = getColumnsFromFile(fileReader);
+					entryType.setAttributes(attributeListForColumns);
+					namedTypeObjectsList.add(namedType);
+				}
+				metadata.setObjects(namedTypeObjectsList);
+				if( fileSystem.isDirectory(path) )
+				{
+					return metadata;
+				}
+				else
+				{
+					continue;
+				}
 			}
-			metadata.setObjects(namedTypeObjectsList);
-	    
-		} catch (IOException  e) {
-			throw new DataExtractionServiceException(new Problem().code("ERROR").message(e.getMessage()));
-		}finally{
-			fileReader.close(); 
+		}
+		catch ( IOException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownMetadata").message(e.getMessage()));
+		}
+		finally
+		{
+			if( fileReader != null )
+			{
+				fileReader.close();
+			}
+
+			if( input != null )
+			{
+				input.close();
+			}
 		}
 		return metadata;
 	}
-	private List<NamedType> getFileNameFromList(String fName) {
+
+	@SuppressWarnings("static-access")
+	private List<Path> getFilesPathList(FileSystem fileSystem, Path path, String pattern) throws FileNotFoundException, IOException
+	{
+		List<Path> filePathList = new ArrayList<>();
+		FileStatus[] fileStatuses = null;
+		if( fileSystem != null )
+		{
+			if( fileSystem.isDirectory(path) )
+			{
+				if( StringUtils.isNotBlank(pattern) )
+				{
+					fileStatuses = listFiles(fileSystem, path, pattern);
+				}
+				else
+				{
+					fileStatuses = fileSystem.listStatus(path);
+				}
+				for (FileStatus fileStatus : fileStatuses)
+				{
+					if( fileStatus.isFile() )
+					{
+						filePathList.add(path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()));
+					}
+				}
+			}
+			else
+			{
+				filePathList.add(path);
+			}
+		}
+		return filePathList;
+	}
+
+	/** @return FileStatus for data files only. */
+
+	@SuppressWarnings("deprecation")
+	private FileStatus[] listFiles(FileSystem fs, Path path, String pattern) throws IOException
+	{
+		FileStatus[] fileStatuses = fs.listStatus(path);
+		List<FileStatus> files = new ArrayList<FileStatus>();
+		Pattern patt = Pattern.compile(GlobCompiler.globToPerl5(pattern.toCharArray(), GlobCompiler.DEFAULT_MASK));
+		for (FileStatus fstat : fileStatuses)
+		{
+			String fname = fstat.getPath().getName();
+			if( !fstat.isDir() )
+			{
+				Matcher mat = patt.matcher(fname);
+				if( mat.matches() )
+				{
+					files.add(fstat);
+				}
+			}
+		}
+		return (FileStatus[]) files.toArray(new FileStatus[files.size()]);
+	}
+
+	private List<NamedType> getFileNameFromList(String fName)
+	{
 		List<NamedType> tableList = new ArrayList<>();
 		NamedType namedType = new NamedType();
 		namedType.setName(fName);
@@ -211,131 +400,236 @@ public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
 		tableList.add(namedType);
 		return tableList;
 	}
-	private List<NamedType> getColumnsFromFile(FileReader<GenericRecord> fileReader) throws DataExtractionServiceException {
-		List<NamedType> attributeList = new ArrayList<NamedType>();
-		try {
-		    Schema scehma = fileReader.getSchema();
-		    JSONParser parser = new JSONParser(); 
-		    JSONObject json = (JSONObject) parser.parse(scehma.toString());
-		    JSONArray jsonArray = (JSONArray) json.get("fields");
 
-			for(int i = 0; i < jsonArray.size(); i++)
+	private List<NamedType> getColumnsFromFile(FileReader<GenericRecord> fileReader) throws DataExtractionServiceException
+	{
+		List<NamedType> attributeList = new ArrayList<NamedType>();
+		try
+		{
+			Schema scehma = fileReader.getSchema();
+			JSONParser parser = new JSONParser();
+			JSONObject json = (JSONObject) parser.parse(scehma.toString());
+			JSONArray jsonArray = (JSONArray) json.get("fields");
+
+			for (int i = 0; i < jsonArray.size(); i++)
 			{
-			      JSONObject object = (JSONObject) jsonArray.get(i);
-			      String columnName = (String) object.get("name");
-			      NamedType namedType = new NamedType();
-				  namedType.setName(columnName);
-			      JSONArray typeArray = (JSONArray) object.get("type");
-			      if(typeArray.get(1) instanceof JSONObject){
-			    	  namedType.setType(new Type().kind(Type.KindEnum.LIST));
-					  List<NamedType> attributeListForColumns = new ArrayList<>();
-			    	  JSONObject subObject = (JSONObject) typeArray.get(1);
-			    	  JSONArray subArray = (JSONArray) subObject.get("items");
-			    	  if(subArray.get(1) instanceof String){
-			    		    String type=  (String)subArray.get(1);
-			    		    Type childCloumnType = new Type().kind(Type.KindEnum.LIST).dataType(getDataType(type.toUpperCase()));
-							namedType.setType(childCloumnType);
-			    	  }else if(subArray.get(1) instanceof JSONObject){
-			    		  Type entryType = new Type().kind(Type.KindEnum.OBJECT);
-						  namedType.getType().setEntryType(entryType);
-			    		  JSONObject subArrayObject= (JSONObject)subArray.get(1);
-			    		  JSONArray colmnsAndTypes = (JSONArray) subArrayObject.get("fields");
-					  		 for(int j = 0; j < colmnsAndTypes.size(); j++)
-							{
-					  			JSONObject objectName = (JSONObject) colmnsAndTypes.get(j);
-					  			String subColumn = (String) objectName.get("name");
-					  			String docType = (String) objectName.get("doc");
-					  			NamedType childNamedType = new NamedType();
-								childNamedType.setName(subColumn);
-								Type childCloumnType = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(docType.toUpperCase()));
-								childNamedType.setType(childCloumnType);
-								attributeListForColumns.add(childNamedType);
-							} 
-					  		entryType.setAttributes(attributeListForColumns);
-			    	  }
-			    	 
-			      }else{
-			    	  Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(typeArray.get(1).toString().toUpperCase()));
-			    	  namedType.setType(typeForCoumn);
-			      }
-			  	attributeList.add(namedType);
+				JSONObject object = (JSONObject) jsonArray.get(i);
+				String columnName = (String) object.get("name");
+				NamedType namedType = new NamedType();
+				namedType.setName(columnName);
+				JSONArray typeArray = (JSONArray) object.get("type");
+				if( typeArray.get(1) instanceof JSONObject )
+				{
+					namedType.setType(new Type().kind(Type.KindEnum.LIST));
+					List<NamedType> attributeListForColumns = new ArrayList<>();
+					JSONObject subObject = (JSONObject) typeArray.get(1);
+					JSONArray subArray = (JSONArray) subObject.get("items");
+					if( subArray.get(1) instanceof String )
+					{
+						String type = (String) subArray.get(1);
+						Type childCloumnType = new Type().kind(Type.KindEnum.LIST).dataType(getDataType(type.toUpperCase()));
+						namedType.getType().setEntryType(childCloumnType);
+					}
+					else if( subArray.get(1) instanceof JSONObject )
+					{
+						Type entryType = new Type().kind(Type.KindEnum.OBJECT);
+						namedType.getType().setEntryType(entryType);
+						JSONObject subArrayObject = (JSONObject) subArray.get(1);
+						JSONArray colmnsAndTypes = (JSONArray) subArrayObject.get("fields");
+						for (int j = 0; j < colmnsAndTypes.size(); j++)
+						{
+							JSONObject objectName = (JSONObject) colmnsAndTypes.get(j);
+							String subColumn = (String) objectName.get("name");
+							String docType = (String) objectName.get("doc");
+							NamedType childNamedType = new NamedType();
+							childNamedType.setName(subColumn);
+							Type childCloumnType = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(docType.toUpperCase()));
+							childNamedType.setType(childCloumnType);
+							attributeListForColumns.add(childNamedType);
+						}
+						entryType.setAttributes(attributeListForColumns);
+					}
+
+				}
+				else
+				{
+					Type typeForCoumn = new Type().kind(Type.KindEnum.VALUE).dataType(getDataType(typeArray.get(1).toString().toUpperCase()));
+					namedType.setType(typeForCoumn);
+				}
+				attributeList.add(namedType);
 			}
-		} catch (Exception e) {
-			throw new DataExtractionServiceException(new Problem().code("ERROR").message(e.getMessage()));
+		}
+		catch ( Exception e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownMetadata").message(e.getMessage()));
 		}
 
 		return attributeList;
 	}
-	 
-	public int getTableCountRows(DataSource ds, String tableName) throws DataExtractionServiceException {
-		int countRows = 0;
-		Path path = null;
-		FileReader<GenericRecord> fileReader = null;
-		try 
+
+	public int getFilesSize(DataSource ds, String tableName) throws DataExtractionServiceException, IOException
+	{
+		int fileLength = 0;
+		FileSystem fileSystem = null;
+		SeekableInput seekableInput = null;
+		try
 		{
-			path = getDataBaseConnection(ds);
-		    SeekableInput input = new FsInput(path, config);
-		    DatumReader<GenericRecord> reader = new GenericDatumReader<GenericRecord>();
-		    fileReader = DataFileReader.openReader(input, reader);
-			for (GenericRecord datum : fileReader) 
+			fileSystem = getDataBaseConnection(ds);
+			Path path = new Path(tableName.trim());
+			String pattern = getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+			List<Path> filesList = getFilesPathList(fileSystem, path, pattern);
+			for (Path filepath : filesList)
 			{
-				if (datum != null)
-					countRows++;
-			}
-		} catch (ClassNotFoundException | SQLException e) {
-			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
-		} catch (IOException e) {
-			throw new DataExtractionServiceException(new Problem().code("connection error").message(e.getMessage()));
-		} finally {
-			try {
-				if(fileReader != null)
-				fileReader.close();
-				destroy(config);
-			} catch (IOException e) {
-				e.printStackTrace();
+				seekableInput = new FsInput(filepath, config);
+				fileLength = +(int) seekableInput.length();
 			}
 		}
-		return countRows;
+		catch ( ClassNotFoundException | SQLException | IOException | InterruptedException | URISyntaxException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			destroy(config, fileSystem, seekableInput);
+		}
+		return fileLength;
 	}
+
+	public int getFileSize(Path filepath) throws DataExtractionServiceException, IOException
+	{
+		int fileLength = 0;
+		SeekableInput seekableInput = null;
+		try
+		{
+			seekableInput = new FsInput(filepath, config);
+			fileLength = +(int) seekableInput.length();
+		}
+		finally
+		{
+			destroy(null, null, seekableInput);
+		}
+		return fileLength;
+	}
+
+	private Map<String, Integer> getFilesList(DataSource ds, String tableName) throws DataExtractionServiceException
+	{
+		FileSystem fileSystem = null;
+		Map<String, Integer> filesMap = null;
+		try
+		{
+			fileSystem = getDataBaseConnection(ds);
+			Path path = new Path(tableName.trim());
+			String pattern = getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+			filesMap = getFilesList(fileSystem, path, pattern);
+		}
+		catch ( ClassNotFoundException | SQLException | IOException | InterruptedException | URISyntaxException e )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownConnection").message(e.getMessage()));
+		}
+		finally
+		{
+			destroy(config, fileSystem, null);
+		}
+		return filesMap;
+
+	}
+
+	@SuppressWarnings("static-access")
+	private Map<String, Integer> getFilesList(FileSystem fileSystem, Path path, String pattern) throws FileNotFoundException, IOException, DataExtractionServiceException
+	{
+		List<Path> filePathList = new ArrayList<>();
+		FileStatus[] fileStatuses = null;
+		Map<String, Integer> filesMap = new HashMap<String, Integer>();
+		if( fileSystem != null )
+		{
+			if( fileSystem.isDirectory(path) )
+			{
+				if( StringUtils.isNotBlank(pattern) )
+				{
+					fileStatuses = listFiles(fileSystem, path, pattern);
+				}
+				else
+				{
+					fileStatuses = fileSystem.listStatus(path);
+				}
+				for (FileStatus fileStatus : fileStatuses)
+				{
+					if( fileStatus.isFile() )
+					{
+						filePathList.add(path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()));
+					}
+				}
+			}
+			else
+			{
+				filePathList.add(path);
+			}
+
+			if( filePathList != null && filePathList.size() > 0 )
+			{
+				for (Path fileName : filePathList)
+				{
+					filesMap.put(fileName.toString(), (int) getFileSize(fileName));
+				}
+			}
+
+		}
+		return filesMap;
+	}
+
 	@Override
-	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec ,int containersCount) throws DataExtractionServiceException 
+	public StartResult startDataExtractionJob(DataSource ds, DataExtractionSpec spec, int containersCount) throws DataExtractionServiceException
 	{
 		StartResult startResult = null;
-		try {
-			
-			String tableName = spec.getCollection();
-			
-			int rowCount = getTableCountRows(ds, tableName);
-
-			if (rowCount == 0) 
-			{
-				
-				throw new DataExtractionServiceException( new Problem().code("meta data error").message("No Rows Found in table :" + tableName));
-				
-			}
-			
-			String[] schemaTableName = StringUtils.split(tableName, ".");
-			
-			tableName = schemaTableName[schemaTableName.length - 1];
-			
-			DataExtractionJob job = new DataExtractionJob()
-					
-					.id(spec.getDataSource() + "-" + tableName + "-" +getUUID())
-					
-					.state(DataExtractionJob.StateEnum.WAITING);
-					 
- 
-				String adapterHome = createDir(this.desHome, TYPE_ID);
-				
-				startResult = new StartResult(job, getDataExtractionTasks(ds, spec, job, rowCount, adapterHome , containersCount));
-		} 
-		catch (Exception exe) 
+		try
 		{
-			throw new DataExtractionServiceException(new Problem().code("job error").message(exe.getMessage()));
+			final DataExtractionJob job = createDataExtractionJob(ds, spec);
+			String adapterHome = createDir(this.desHome, TYPE_ID);
+			final DataExtractionContext context = new DataExtractionContext(this, getDataSourceType(), ds, spec, job, this.messaging, this.pendingTasksQueue, this.pendingTasksQueueName,TYPE_ID, this.encryption);
+			final DataExtractionThread dataExtractionExecutor = new HDFSAvroDataExtractionExecutor(context, adapterHome);
+			this.threadPool.execute(dataExtractionExecutor);
+			startResult = new StartResult(job, dataExtractionExecutor);
 		}
-		
+		catch ( Exception exe )
+		{
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(exe.getMessage()));
+
+		}
 		return startResult;
 	}
+
+	public class HDFSAvroDataExtractionExecutor extends DataExtractionThread
+	{
+
+		private final String adapterHome;
+		private Map<String, Integer> filesMap = null;
+
+		public HDFSAvroDataExtractionExecutor(final DataExtractionContext context, final String adapterHome) throws DataExtractionServiceException
+		{
+			super(context);
+			this.adapterHome = adapterHome;
+		}
+
+		@Override
+		protected List<DataExtractionTask> runDataExtractionJob() throws Exception
+		{
+			final DataSource ds = this.context.ds;
+			final DataExtractionSpec spec = this.context.spec;
+			final DataExtractionJob job = this.context.job;
+
+			final int objectCount;
+
+			synchronized (job)
+			{
+				objectCount = job.getObjectCount();
+			}
+			if( !spec.getScope().equals(DataExtractionSpec.ScopeEnum.SAMPLE) )
+			{
+				filesMap = getFilesList(ds, spec.getCollection());
+			}
+			
+			return getDataExtractionTasks(ds, spec, job, objectCount, adapterHome, filesMap);
+		}
 
 	/**
 	 * @param ds
@@ -347,100 +641,34 @@ public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
 	 * @return
 	 * @throws DataExtractionServiceException
 	 */
-	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec ,
-			
-			DataExtractionJob job,int rowCount ,String adapterHome , int containersCount) throws DataExtractionServiceException{
-		
-		int totalSampleSize = 0;
-		
-		int tasksCount = 0;
-		
+	private List<DataExtractionTask> getDataExtractionTasks(DataSource ds, DataExtractionSpec spec,
+
+			DataExtractionJob job, int rowCount, String adapterHome, Map<String, Integer> filesMap)
+
+			throws DataExtractionServiceException
+	{
+
 		List<DataExtractionTask> dataExtractionJobTasks = new ArrayList<DataExtractionTask>();
-		
+
 		try
 		{
-				
-			if ( spec.getScope( ).equals( DataExtractionSpec.ScopeEnum.SAMPLE ) )
+			if( spec.getScope().equals(DataExtractionSpec.ScopeEnum.SAMPLE) )
 			{
-				
-				if ( spec.getSampleSize( ) == null )
-				{
-					
-					throw new DataExtractionServiceException( new Problem( ).code( "Meta data error" ).message( "sampleSize value not found" ) );
-					
-				}
-				
-				totalSampleSize = rowCount < spec.getSampleSize( ) ? rowCount : spec.getSampleSize( );
-				
-			}else
-			{
-				totalSampleSize = rowCount;
+				dataExtractionJobTasks.add(getDataExtractionTask(ds, spec, job, adapterHome, spec.getCollection(), 1, rowCount));
 			}
-			
-			 synchronized (job) {
-	        	   
-	        	   job.setOutputMessagingQueue("DES-" + job.getId());
-					
-	        	   job.objectsExtracted(0);
-			 }
-			 
-			if (totalSampleSize <= MIN_THRESHOULD_ROWS ) {
-				
-				int offset = 1;
-				
-				dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  totalSampleSize ));
-				
-				tasksCount++;
-				
-			} 
-			else 
+			else
 			{
-				
-				int taskSampleSize = generateTaskSampleSize( totalSampleSize , containersCount );
-				
-				if ( taskSampleSize <= MIN_THRESHOULD_ROWS ) 
-				{  						 
-					taskSampleSize = MIN_THRESHOULD_ROWS ;						 
-				}
-				if ( taskSampleSize > MAX_THRESHOULD_ROWS ) 
-				{  						 
-					taskSampleSize = MAX_THRESHOULD_ROWS ;						 
-				}
-				
-				int noOfTasks = totalSampleSize / taskSampleSize ;			
-				
-				int remainingSampleSize = totalSampleSize % taskSampleSize;		
-				
-				for (int i = 0 ; i < noOfTasks ; i++) 
+				for (Map.Entry<String, Integer> entry : filesMap.entrySet())
 				{
-					
-					int offset = taskSampleSize * i + 1;	
-					
-					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  taskSampleSize ));
-					
-					tasksCount++;
-				}
-				
-				if (remainingSampleSize > 0) 
-				{								 
-					int offset = noOfTasks * taskSampleSize + 1;
-					
-					dataExtractionJobTasks.add(getDataExtractionTask(  ds,   spec ,  job,  adapterHome,  offset,  remainingSampleSize ));
-					
-					tasksCount++;
-				}
-			}
-			 
-           synchronized (job) {
-        	   
-        	   job.setTasksCount(tasksCount);
-        	   
-        	   job.setObjectCount(totalSampleSize);
-           }
 
-		} catch ( Exception e )
+					dataExtractionJobTasks.add(getDataExtractionTask(ds, spec, job, adapterHome, entry.getKey(), 1, entry.getValue()));
+				}
+
+			}
+		}
+		catch ( Exception e )
 		{
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) ); 
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
 		return dataExtractionJobTasks;
 	}
@@ -455,57 +683,72 @@ public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
 	 * @return
 	 * @throws DataExtractionServiceException
 	 */
-	private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec ,
-			
-			DataExtractionJob job,String adapterHome,int offset,int limit) throws DataExtractionServiceException
+	private final DataExtractionTask getDataExtractionTask(DataSource ds, DataExtractionSpec spec,
+
+			DataExtractionJob job, String adapterHome, String filePath, int offset, int limit)
+
+			throws DataExtractionServiceException
 	{
-		
+		String scope = null;
+		int sampleSize = 0;
 		DataExtractionTask dataExtractionTask = new DataExtractionTask();
-		 
+
 		try
 		{
-		
-		final String dataSourceHost = getConnectionParam( ds , PARAM_HOST_ID );
-		
-		final String dataSourcePort = getConnectionParam( ds , PARAM_PORT_ID );
-		
-		final String dataSourceUser = getConnectionParam( ds , PARAM_USER_ID );
-		
-		final String hdfsFilePath = getConnectionParam(ds, PARAM_FILE_ID);
-		
-	 
-		
-		Map< String , String > contextParams = getContextParams( adapterHome , JOB_NAME , dataSourceUser ,hdfsFilePath,
-				
-				getDataSourceColumnNames(ds, spec,".") , "hdfs://"+dataSourceHost , dataSourcePort ,
-				
-				 job.getOutputMessagingQueue() , String.valueOf(offset) , String.valueOf( limit )  ,
-				
-				String.valueOf( DataExtractionSpec.ScopeEnum.SAMPLE ) , String.valueOf( limit ) );
-		
-		dataExtractionTask.taskId("DES-Task-"+getUUID( ))
-						
-			                    .jobId( job.getId( ) )
-	                           
-	                            .typeId( TYPE_ID +"__"+JOB_NAME + "__" +DEPENDENCY_JAR )
-	                           
-	                            .contextParameters( contextParams )
-	                           
-	                            .numberOfFailedAttempts( 0 );
+
+			if( spec.getScope().equals(DataExtractionSpec.ScopeEnum.SAMPLE) )
+			{
+				scope = String.valueOf(DataExtractionSpec.ScopeEnum.SAMPLE);
+				sampleSize = spec.getSampleSize();
+			}
+			else
+			{
+				scope = String.valueOf(DataExtractionSpec.ScopeEnum.ALL);
+				sampleSize = 0;
+			}
+
+			final String dataSourceHost = getConnectionParam(ds, PARAM_HOST_ID);
+
+			final String dataSourcePort = getConnectionParam(ds, PARAM_PORT_ID);
+
+			final String dataSourceUser = getConnectionParam(ds, PARAM_USER_ID);
+
+			final String fileRegExp = StringUtils.isBlank(getConnectionParam(ds, PARAM_FILE_REG_EXP_ID)) ? "*" : getConnectionParam(ds, PARAM_FILE_REG_EXP_ID);
+
+			String taskId = "DES-Task-" + getUUID();
+
+			Map<String, String> contextParams = getContextParams(adapterHome, JOB_NAME, dataSourceUser, filePath.replaceAll(" ", "\\ "),
+
+					getFormulateDataSourceColumnNames(ds, spec, ".", "@#@").replaceAll(" ", "\\ "), fileRegExp, "hdfs://" + dataSourceHost, dataSourcePort,
+
+					job.getOutputMessagingQueue(), String.valueOf(offset), String.valueOf(sampleSize),
+
+					scope, String.valueOf(limit), taskId);
+
+			dataExtractionTask.taskId(taskId)
+
+					.jobId(job.getId())
+
+					.typeId(TYPE_ID + "__" + JOB_NAME + "__" + DEPENDENCY_JAR)
+
+					.contextParameters(contextParams)
+
+					.numberOfFailedAttempts(0);
 		}
-		catch(Exception e)
+		catch ( Exception e )
 		{
-			throw new DataExtractionServiceException( new Problem( ).code( "Error" ).message( e.getMessage() ) );
+			throw new DataExtractionServiceException(new Problem().code("unknownDataExtractionJob").message(e.getMessage()));
 		}
 		return dataExtractionTask;
 	}
-	 
+
 	/**
 	 * @param jobFilesPath
 	 * @param jobName
 	 * @param hdfsUserName
 	 * @param hdfsFilePath
 	 * @param dataSourceColumnNames
+	 * @param fileRegExp
 	 * @param dataSourceHost
 	 * @param dataSourcePort
 	 * @param jobId
@@ -517,45 +760,55 @@ public final class HDFSAvroDataSourceAdapter extends DataSourceAdapter {
 	 * @throws IOException
 	 */
 	private Map<String, String> getContextParams(String jobFilesPath, String jobName, String hdfsUserName,
-			
-			String hdfsFilePath, String dataSourceColumnNames, String dataSourceHost,String dataSourcePort,String jobId, String offset, String limit,
-			
-			String dataSourceScope, String dataSourceSampleSize) throws IOException {
+
+			String hdfsFilePath, String dataSourceColumnNames, String fileRegExp,
+
+			String dataSourceHost, String dataSourcePort, String jobId, String offset, String limit,
+
+			String dataSourceScope, String dataSourceSampleSize, String taskId) throws IOException
+	{
 
 		Map<String, String> ilParamsVals = new LinkedHashMap<>();
 
 		ilParamsVals.put("JOB_STARTDATETIME", getConvertedDate(new Date()));
-		
+
 		ilParamsVals.put("FILE_PATH", jobFilesPath);
-		
+
 		ilParamsVals.put("JOB_NAME", jobName);
-		
+
 		ilParamsVals.put("Cont_File", "");
-		
+
 		ilParamsVals.put("HDFS_URI", dataSourceHost);
-		
+
 		ilParamsVals.put("HADOOP_USER_NAME", hdfsUserName);
-		
+
 		ilParamsVals.put("HDFS_FILE_PATH", hdfsFilePath);
-		
+
 		ilParamsVals.put("FILE_PATH", jobFilesPath);
-		
+
 		ilParamsVals.put("JOB_NAME", jobName);
-		
+
 		ilParamsVals.put("DATASOURCE_COLUMN_NAMES", dataSourceColumnNames);
-		
+
+		ilParamsVals.put("FILEREGEX", fileRegExp);
+
 		ilParamsVals.put("JOB_ID", jobId);
-		
+
 		ilParamsVals.put("OFFSET", offset);
-		
+
 		ilParamsVals.put("LIMIT", limit);
-		
+
 		ilParamsVals.put("SCOPE", dataSourceScope);
-		
+
 		ilParamsVals.put("SAMPLESIZE", dataSourceSampleSize);
+
+		ilParamsVals.put("DESTASKID", taskId);
+
+		ilParamsVals.put("DESTASKSTATUS", taskStatusQueueName);
 
 		return ilParamsVals;
 
+	}
 	}
 
 }

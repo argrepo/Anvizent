@@ -1,9 +1,11 @@
-FROM openjdk:8-jre
+FROM store/oracle/serverjre:8
 
-ARG JAR_FILE
+RUN mkdir /des
 
-ENV JAR=${JAR_FILE}
+COPY target/*.jar /des/des.jar
 
-ADD target/${JAR_FILE} ${JAR_FILE}
+ADD target/jobs /des/ETLJOBS
 
-ENTRYPOINT ["/bin/sh", "-c", "java -Dserver.port=8181 -Dmessaging.service=amqp://rabbit -jar ${JAR}"]
+EXPOSE 8080
+
+CMD java -jar /des/des.jar

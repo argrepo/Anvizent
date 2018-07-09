@@ -13,8 +13,8 @@ info:
 server:
   port: 8090
 scheduling:
-  pendingTasksQueue: DES-Tasks-Development 
-  taskStatusQueue: DES-TaskStatus-Development
+  pendingTasksQueue: DES-Tasks-Dev
+  taskStatusQueue: DES-TaskStatus-Dev
   retries: 5   # How many times a task is retried in the face of errors before marking the task as failed
 talend:
-  jobs: ../des.jobs/target/jobs
+  jobs: ../des.controller.bundle/target/jobs

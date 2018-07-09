@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.prifender</groupId>
         <artifactId>prifender</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>1.1.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>des.adapter.other.sap</artifactId>
@@ -29,11 +29,11 @@
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
         </dependency>
-        <dependency>
+          <dependency>
             <groupId>com.sap</groupId>
             <artifactId>sapjco</artifactId>
             <version>${sap.connector.version}</version>
-        </dependency>
+        </dependency>  
     </dependencies>
 
 </project>

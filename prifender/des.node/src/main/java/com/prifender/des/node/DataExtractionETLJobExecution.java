@@ -86,10 +86,10 @@ public class DataExtractionETLJobExecution {
 
 		String[] command = new String[list.size()];
 		command = list.toArray(command);
-		 System.out.println("Etl Jobs command --> ");
+		System.out.println("Etl Jobs command --> ");
 		for (String commondLine : list) {
 			System.out.println(commondLine);
-		} 
+		}
 		return command;
 	}
 

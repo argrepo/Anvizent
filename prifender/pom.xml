@@ -6,14 +6,14 @@
     <groupId>com.prifender</groupId>
     <artifactId>prifender</artifactId>
     <name>Prifender</name>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
 
         <maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
-        <prifender.version.base>0.8.0</prifender.version.base>
-        <prifender.version.full>0.8.0.${maven.build.timestamp}</prifender.version.full>
+        <prifender.version.base>1.1.0</prifender.version.base>
+        <prifender.version.full>1.1.0.${maven.build.timestamp}</prifender.version.full>
         <prifender.version>${prifender.version.base}-SNAPSHOT</prifender.version>
 
         <java.version>1.8</java.version>
@@ -27,27 +27,39 @@
         <junit.jupiter.version>5.0.3</junit.jupiter.version>
         <git.commit.id.plugin.version>2.2.4</git.commit.id.plugin.version>
         <glassfish.json.version>1.1.2</glassfish.json.version>
+        <javax.json-api.version>1.1.2</javax.json-api.version>
         <gson.version>2.8.2</gson.version>
         <guava.version>24.0-jre</guava.version>
+        <unirest-java.version>1.4.9</unirest-java.version>
         <maven.surefire.plugin.version>2.20.1</maven.surefire.plugin.version>
         <maven.antrun.plugin.version>1.8</maven.antrun.plugin.version>
-        <spring.version>5.0.3.RELEASE</spring.version>
+        <spring.version>4.3.14.RELEASE</spring.version>
         <spring.boot.version>1.5.10.RELEASE</spring.boot.version>
         <springfox.version>2.6.1</springfox.version>
         <swagger.annotations.version>1.5.8</swagger.annotations.version>
         <swagger.codegen.version>2.2.3</swagger.codegen.version>
         <jsonsimple.version>1.1.1</jsonsimple.version>
-        <commonslang3.version>3.0</commonslang3.version>
+        <commonslang3.version>3.7</commonslang3.version>
         <commonslang.version>2.6</commonslang.version>
         <commons.csv.version>1.5</commons.csv.version>
         <rabbitmq.client.version>5.1.2</rabbitmq.client.version>
-
+        <junit.jupiter.version>5.1.0</junit.jupiter.version>
+        <junit.platform.version>1.0.1</junit.platform.version>
+		<oro.version>2.0.8</oro.version>
+		<amazonaws.version>1.11.330</amazonaws.version>
+		<netty-all.version>4.0.47.Final</netty-all.version>
+		<jcifs.version>1.3.17</jcifs.version>
+        <jftp.version>1.52</jftp.version>
+        <maven.resources.plugin.version>2.6</maven.resources.plugin.version>
+        
         <!-- Relational Data Source Connectors -->
 
         <postgres.jar.version>42.1.4</postgres.jar.version>
         <mysql.connector.version>6.0.6</mysql.connector.version>
         <oracle.connector.version>12.2.0.1</oracle.connector.version>
         <sqlserver.connector.version>6.4.0.jre8</sqlserver.connector.version>
+        <redshift.connector.version>1.2.10.1009</redshift.connector.version>
+        <postgresql.connector.version>42.2.2</postgresql.connector.version>
 
         <!-- Hierarchical Data Source Connectors -->
 
@@ -57,12 +69,15 @@
         <!-- Other Data Source Connectors -->
 
         <sap.connector.version>3.0</sap.connector.version>
-        <hbase.connector.version>1.3.1</hbase.connector.version>  
+        <hbase.connector.version>1.4.2</hbase.connector.version>  
         <hive.connector.version>2.3.2</hive.connector.version>
         <teradata.connector.version>16.20.00.06</teradata.connector.version>
         <hdfsavro.connector.version>1.7.4</hdfsavro.connector.version>
         <hdfparquet.connector.version>1.9.0</hdfparquet.connector.version>
         <apachehadoop.version>2.7.4</apachehadoop.version>
+        <hdfsorc.connector.version>2.3.0</hdfsorc.connector.version>
+        <cassandra.connector.version>3.4.0</cassandra.connector.version>
+        <dynamodb.connector.version>1.11.330</dynamodb.connector.version>	
   
         <!-- Encoding -->
 
@@ -72,7 +87,7 @@
     </properties>
 
     <modules>
-        <module>des.api</module>
+         <module>des.api</module>
         <module>des.client.java</module>
         <module>des.controller</module>
         <module>des.controller.bundle</module>
@@ -83,16 +98,19 @@
         <module>des.adapter.other.sap</module>
         <module>des.adapter.nosql.hbase</module> 
         <module>des.adapter.filesystem.csv</module>
+        <module>des.adapter.filesystem.nfs.csv</module>
         <module>des.adapter.relational.hive</module> 
         <module>des.adapter.relational.mysql</module>
         <module>des.adapter.relational.oracle</module>
         <module>des.adapter.relational.sqlserver</module>
         <module>des.adapter.relational.sqlserverkerbores</module>  
-        <module>des.adapter.relational.teradata</module>  
-        <module>des.adapter.hierarchical.cassandra</module>  
-        <module>des.adapter.hierarchical.hdfsorc</module>  
-        <module>des.adapter.hierarchical.salesforce</module>  
-        <module>des.jobs</module>
+        <module>des.adapter.relational.teradata</module>
+        <module>des.adapter.hierarchical.cassandra</module>
+        <module>des.adapter.hierarchical.hdfsorc</module>
+        <module>des.adapter.relational.redshift</module> 
+        <module>des.adapter.simplified.dynamodb</module> 
+        <module>des.adapter.relational.postgresql</module> 
+        <!-- <module>des.jobs</module> -->
         <module>des.stub</module>
         <module>des.mock</module>
         <module>des.mock.pump</module>

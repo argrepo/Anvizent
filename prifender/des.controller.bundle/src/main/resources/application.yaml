@@ -14,9 +14,19 @@ des:
   home: ../des.jobs/target/jobs
   metadata: ${des.home}/desDataSources.json
   containers : 5
+  threads: 10
 scheduling:
-  pendingTasksQueue: DES-Tasks-Development 
-  taskStatusQueue: DES-TaskStatus-Development
+  pendingTasksQueue:  DES-Tasks-Dev
+  taskStatusQueue:  DES-TaskStatus-Dev
 server:
   contextPath: /des
   port: ${DES_PORT:8080}
+mongo:
+  db:
+    host: 13.68.21.43
+    port: 27017
+    userName: desuser
+    password: 'SO#h3TbY*hx8ypJP'
+    database: cust_data
+    collection : DataSources
+    

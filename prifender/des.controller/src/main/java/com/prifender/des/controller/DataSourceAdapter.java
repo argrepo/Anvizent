@@ -1,7 +1,8 @@
 package com.prifender.des.controller;
 
-import java.util.List;
-
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import com.prifender.des.DataExtractionServiceException;
 import com.prifender.des.model.ConnectionParam;
 import com.prifender.des.model.ConnectionParamDef;
@@ -9,14 +10,16 @@ import com.prifender.des.model.ConnectionParamDef.TypeEnum;
 import com.prifender.des.model.ConnectionStatus;
 import com.prifender.des.model.DataExtractionJob;
 import com.prifender.des.model.DataExtractionSpec;
-import com.prifender.des.model.DataExtractionTask;
 import com.prifender.des.model.DataSource;
 import com.prifender.des.model.DataSourceType;
 import com.prifender.des.model.Metadata;
+import com.prifender.encryption.api.Encryption;
 import com.prifender.messaging.api.MessagingConnectionFactory;
+import com.prifender.messaging.api.MessagingQueue;
 
 public abstract class DataSourceAdapter
 {
+	
     // Host
     
     public static final String PARAM_HOST_ID = "Host";
@@ -70,33 +73,43 @@ public abstract class DataSourceAdapter
     
     public static final ConnectionParamDef PARAM_SCHEMA 
         = new ConnectionParamDef().id( PARAM_SCHEMA_ID ).label( PARAM_SCHEMA_LABEL ).description( PARAM_SCHEMA_DESCRIPTION ).type( TypeEnum.STRING );
-    
-    public static final String PARAM_URL_ID = "Schema";
-    public static final String PARAM_URL_LABEL = "Schema";
-    public static final String PARAM_URL_DESCRIPTION = "The name of a schema within the specified database";
-    
-    public static final ConnectionParamDef PARAM_URL 
-        = new ConnectionParamDef().id( PARAM_URL_ID ).label( PARAM_URL_LABEL ).description( PARAM_URL_DESCRIPTION ).type( TypeEnum.STRING );
-    
-    
 	
     public static final class StartResult
     {
         public final DataExtractionJob job;
-        public final List<DataExtractionTask> dataExtractionTasks;
+        public final DataExtractionThread  thread;
         
-        public StartResult( final DataExtractionJob job,final List<DataExtractionTask> dataExtractionTasks)
+        public StartResult( final DataExtractionJob job,final DataExtractionThread thread /*,final List<DataExtractionTask> dataExtractionTasks*/)
         {
             this.job = job;
-            this.dataExtractionTasks = dataExtractionTasks;
+            this.thread = thread;
         }
     }
 	
+    @Value( "${des.home}" )
+    protected String desHome;
+    
+    @Autowired
+    protected DataExtractionServiceThreadPool threadPool;
+    
+    @Autowired
+    protected MessagingConnectionFactory messaging;
+    
+    @Value( "${scheduling.pendingTasksQueue}" )
+    protected String pendingTasksQueueName;
+      
+    protected MessagingQueue pendingTasksQueue;
+    
+  	@Autowired
+  	protected Encryption encryption;
+  	
     public abstract DataSourceType getDataSourceType();
 
     public abstract ConnectionStatus testConnection( DataSource ds ) throws DataExtractionServiceException;
 
     public abstract Metadata getMetadata( DataSource ds ) throws DataExtractionServiceException;
+    
+    public abstract int getCountRows( DataSource ds, DataExtractionSpec spec) throws DataExtractionServiceException;
     
     public abstract StartResult startDataExtractionJob( final DataSource ds, final DataExtractionSpec spec,final int noOfContainers) throws DataExtractionServiceException;
   
@@ -156,5 +169,36 @@ public abstract class DataSourceAdapter
         
         return null;
     }
+    protected final DataExtractionJob createDataExtractionJob( final DataSource ds, final DataExtractionSpec spec ) throws DataExtractionServiceException
+    {
+        final DataExtractionJob job = new DataExtractionJob();
+        final String collection = spec.getCollection();
+        
+        final StringBuilder id = new StringBuilder();
+        
+        id.append( spec.getDataSource() );
+        id.append( '-' );
+        
+        for( int i = 0, n = collection.length(); i < n; i++ )
+        {
+            final char ch = collection.charAt( i );
+            
+            if( ( ch >= 'a' && ch <= 'z' ) || ( ch >= 'A' && ch <= 'Z' ) || ( ch >= '0' && ch <= '9' ) )
+            {
+                id.append( ch );
+            }
+            else
+            {
+                id.append( '_' );
+            }
+        }
+        
+        id.append( '-' );
+        id.append( UUID.randomUUID().toString() );
+        job.setId( id.toString() );
+        job.setOutputMessagingQueue( "DES-" + job.getId() );
+        job.setState( DataExtractionJob.StateEnum.WAITING );
 
+        return job;
+    }
 }

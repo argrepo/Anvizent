@@ -8,11 +8,9 @@ import java.text.DateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
@@ -175,32 +173,33 @@ public class DataExtractionServiceNode implements Runnable {
 			DataExtractionETLJobExecution dataExtractionETLJobExecution = new DataExtractionETLJobExecution(this.talendJobsPath, typeId);
             dataExtractionETLJobExecution.runETLjar(jobName,dependencyJar,dataExtractionJobTask.getContextParameters());
 			 
-			String endTime = DATE_FORMAT.format(new Date());
+			if(!typeId.equals("CSV") && !typeId.equals("CSVNFS") && !typeId.equals("HDFSAvro"))
+			{
+				String endTime = DATE_FORMAT.format(new Date());
+				
+				postTaskToTaskStatusQueue
+				 (
+			         new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
 			
-			postTaskToTaskStatusQueue
-			 (
+					.jobId(dataExtractionJobTask.getJobId()) 
 					
-		         new DataExtractionTaskResults().taskId(dataExtractionJobTask.getTaskId())
-		
-				.jobId(dataExtractionJobTask.getJobId()) 
-				
-				.timeStarted(startTime).timeCompleted(endTime)
-				
-				.offset(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("OFFSET")))
-				
-				.limit(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("LIMIT")))
-				
-				.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
-				
-				.lastFailureMessage(dataExtractionJobTask.getLastFailureMessage())
-				
-				.objectsExtracted(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("SAMPLESIZE"))),
-				
-				taskStatusQueue
-				
-			 );
-			
+					.timeStarted(startTime).timeCompleted(endTime)
+					
+					.offset(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("OFFSET")))
+					
+					.limit(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("LIMIT")))
+					
+					.numberOfFailedAttempts(dataExtractionJobTask.getNumberOfFailedAttempts())
+					
+					.lastFailureMessage(dataExtractionJobTask.getLastFailureMessage())
+					
+					.objectsExtracted(Integer.valueOf(dataExtractionJobTask.getContextParameters().get("SAMPLESIZE"))),
+					
+					taskStatusQueue
+					
+				 );
 			}
+		  }
 		}catch(Exception e){
 			
 			throw new Exception( e.getMessage( ) );
