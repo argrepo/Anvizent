@@ -1,0 +1,25 @@
+variable name : DES_HOME
+variable value: C:/_PRIFENDER/ETLJOBS
+
+variable name : KRB_CONFIG
+variable value: D:\SqlServer_Kerbero\Krb.ini
+
+variable name : KRB_LOGIN_CONFIG
+variable value: D:\SqlServer_Kerbero\Krb_login.config
+
+variable name : MESSAGING_SERVICE
+variable value: amqp://etluser:password@192.168.0.109
+ 
+variable name : DEK_PATH
+variable value: D:\Prifender_completed_jars\Prifender_Build\21_04_2018\newDekFile.txt
+
+variable name : KEK_PATH
+variable value: D:\Prifender_completed_jars\Prifender_Build\21_04_2018\newKekFile.txt
+
+variable name : ENCRYPTION_SERVICE
+variable value: http://localhost:8888/
+
+
+D:\Prifender\Env variables\newKekFile.txt
+
+

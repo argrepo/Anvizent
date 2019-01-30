@@ -1,0 +1,164 @@
+-------------------------------
+Angular js docs:
+--------------
+
+https://docs.angularjs.org/api
+
+https://material.angularjs.org/latest/
+
+
+
+
+client admin url: date:- 08/08/2018
+---------------
+http://anvizdevlogin.dwpractice.com/clientadmin/pages/maintm.jsp#
+
+mahender.alaveni@anvizent.com
+1010027
+dwp@123
+
+login url: date:- 08/08/2018
+----------
+
+http://anvizdevscheduler.dwpractice.com/anvizentlogin/login.jsp?status=Success
+
+mahender.alaveni@arghainc.com
+1010027
+dwp@123
+
+ 
+http://anvizdevscheduler.dwpractice.com/schedulerui/
+superadmin@anvizent.com
+test
+
+
+http://localhost:2018/schedulerui/#/auth/scheduler
+
+superadmin@anvizent.com
+test
+
+Portal login details:
+--------------------
+svn path: http://svn.dwpractice.com:18080/svn/anvizent_tool/branch/v4_client_db_separation_maven/anvizent-setup-portal
+
+http://anvizdevlogin.dwpractice.com/anvizent-setup-portal/#!/
+superadmin@anvizent.com
+test
+
+http://localhost:9090/anvizent-setup-portal/#!/
+superadmin@anvizent.com
+test
+
+client schedulers for hybrid clients:
+-----------------
+http://localhost:2013/minidw/
+client id: schedulers
+username: superadmin@anvizent.com
+password: test
+
+
+
+Minidw Admin Link: 
+---------------
+
+http://localhost:2013/minidw/autoLogin?auth_token=eAuxIa7TCRHohADIjmtUI7CRzpGTpaw39oujac93lS3p%2B7hy%2F4qFhOWlZfchbnzOssI06IugK4vCzVKuUITrIXsmaAKfPc8VKMK1imA3B08%3D&locale=en_US&time_zone=EST
+
+
+http://192.168.0.133/minidw/autoLogin?auth_token=eAuxIa7TCRHohADIjmtUI7CRzpGTpaw39oujac93lS3p%2B7hy%2F4qFhOWlZfchbnzOssI06IugK4vCzVKuUITrIXsmaAKfPc8VKMK1imA3B08%3D&locale=en_US&time_zone=EST
+
+Etl super admin:
+---------------
+
+http://anvizdevlogin.dwpractice.com/anvizentsuperadmin/pages/login.jsp
+naresh.sanda@arghainc.com/test
+superadmin@anvizent.com/test
+http://localhost:2013/minidw/autoLogin?auth_token=GXw8y%2BAx45Wf0xOONlu0G01qIouHHRYVW8YR4uxZrxK%2BLk354lyr8FZSGHSQgt%2BhypgRl15d9MRGxdMuOLJZgwThvPJPRetli7ICNHDv0S0%3D&locale=en_US&time_zone=Asia/Calcutta&_=1538122454343
+
+Authentication For Webservice:
+--------------------------
+
+X-Authentication-code :
+tK2zvuVJ1XrdQSF8a1wtIWO-L7sDLMWeO7b_aeS2jp-t00xrvt5s1DQpD39nQ9UzKgI4t9_CspgD2YanzK0IJqr2Q7r0NMqYz3Ek90_H6uhseRZ5E82HQNXlajJXYGEU
+userid : Z_EYsLQsvCqMht3PawrUcowmzHYz2znDqeSEhVOofkPicwPgEvxHSRX7ByHvwxJh ( ex:- 7 )
+clientId : 1010027
+clientIdOriginal : 1010027
+Content-Type : application/json
+
+Admin:
+----
+
+X-Authentication-code : sPk2wlX7p0gV6N9-JP3_Y-twORs_QdnCNkKjWUN0fYCzHbAJOinjPD4nX67_Hdt6xDLUQlND5Gd7mge5o__OeAf3-vuaKTpYG7XyGEqpxKJPvlsko2P4LI_kfRduaK-z
+userId : uOfr4bDvPOs7GwQvoOi6-Ry1r_il5aO9wn60TsIvD5HCD1Y8k3MGBNUdxcebjBUV ( ex:- 1 )
+clientId : -1
+clientIdOriginal : -1
+Content-Type : application/json
+
+QaDetails:
+=======
+
+http://anvizqalogin.dwpractice.com/anvizentsuperadmin/pages/maintm.jsp
+Super admin :
+qaadmin@anvizent.com   
+Q@t3am@Anv!z 
+ 
+http://anvizqalogin.dwpractice.com/anvizentlogin/login.jsp
+ 
+
+QA-Env: Power user credentials:
+1009525
+qauser5@dwpractice.biz
+dwp@123
+
+
+1009525 / qauser6@dwpractice.biz / dwp@123 (Client Admin
+
+------------------------
+
+Hi Bharat/Mahender,
+   Point your local machines to the below mentioned mysql servers and try to change driver class name and the dependency jar.
+   Also ensure the application is working fine w.r.t all queries and db dependencies etc.
+Anvizent Application Server IP:- 192.168.9.31
+MiniDW Application Server IP:- 192.168.9.32
+MySQL 8 Server Server IP:- 192.168.9.33
+
+Password:- Anviz@1234 (For all the above servers)
+
+Superadmin login Details:-
+URL:- http://192.168.9.31/anvizentsuperadmin/
+Email id:- superadmin@anvizent.com
+Password:- Anviz@123
+
+Anvizent Application Login Details:-
+URL:- http://192.168.9.31/anvizentlogin/
+
+ClientAdmin Login Details:-
+Client ID:- 1009100
+Email id:- laki_ca@anvizent.com
+Password:- Anviz@123
+
+Power User Login Details:-
+Client ID:- 1009100
+Email id:- laki.p@anvizent.com
+Password:- Anviz@123
+
+Note:- We are able to login Superadmin but unable to login with client user details
+Bharat add one property in catalina.properties  like anvizent.mysql.driver.classname = com.mysql.jdbc.Driver
+any try to use that property across all the applications
+infuture if we get any other migrations also it will become easy to migrate instead of touching the code
+com.mysql.cj.jdbc.Driver-- 8 driver class
+com.mysql.jdbc.driver-- 5 driver class
+also we need to change the connect jar 
+
+----------------
+
+app category links:
+------------------------
+
+http://localhost:2013/minidw//autoLogin?auth_token=pA3nwZR7y%2FVpaEdq5CeG4WHnDJEsKvzIk2d30iMGCOBTMmYivZlSYBjNQTMsjx4Y9G0oAYyzlVp%2B%2Fu%2BIJDnBRCKr7JCKoRdQmztRd4H99wpdc%2FxqF4s%2FqeNJCBfqrHO3&locale=en_US&time_zone=Asia/Calcutta&app=9vveAfqTmbTNzhgMxYHw1g%3D%3D
+
+
+http://localhost:2013/minidw//autoLogin?auth_token=pA3nwZR7y%2FVpaEdq5CeG4WHnDJEsKvzIk2d30iMGCOBTMmYivZlSYBjNQTMsjx4Y9G0oAYyzlVp%2B%2Fu%2BIJDnBRCKr7JCKoRdQmztRd4H99wpdc%2FxqF4s%2FqeNJCBfqrHO3&locale=en_US&time_zone=Asia/Calcutta&app=OHjR9rJ08ePWvwDSuPD%2B%2BQ%3D%3D
+
+
+
+http://localhost:2013/minidw//autoLogin?auth_token=pA3nwZR7y%2FVpaEdq5CeG4WHnDJEsKvzIk2d30iMGCOBTMmYivZlSYBjNQTMsjx4Y9G0oAYyzlVp%2B%2Fu%2BIJDnBRCKr7JCKoRdQmztRd4H99wpdc%2FxqF4s%2FqeNJCBfqrHO3&locale=en_US&time_zone=Asia/Calcutta&app=A8K8XEvaeXg53f94y%2BACGQ%3D%3D

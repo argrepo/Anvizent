@@ -1,0 +1,53 @@
+Run Rserve in windows
+--------------------
+ 
+> install.packages("Rserve")
+Installing package into ‘C:/Users/mahender.alaveni/Documents/R/win-library/3.5’
+(as ‘lib’ is unspecified)
+--- Please select a CRAN mirror for use in this session ---
+trying URL 'https://rweb.crmda.ku.edu/cran/bin/windows/contrib/3.5/Rserve_1.7-3.zip'
+Content type 'application/zip' length 638177 bytes (623 KB)
+downloaded 623 KB
+
+package ‘Rserve’ successfully unpacked and MD5 sums checked
+
+The downloaded binary packages are in C:\Users\mahender.alaveni\AppData\Local\Temp\Rtmpuwe9Oq\downloaded_packages
+
+> install.packages("Rserve")
+Installing package into ‘C:/Users/mahender.alaveni/Documents/R/win-library/3.5’
+(as ‘lib’ is unspecified)
+--- Please select a CRAN mirror for use in this session ---
+trying URL 'https://rweb.crmda.ku.edu/cran/bin/windows/contrib/3.5/Rserve_1.7-3.zip'
+Content type 'application/zip' length 638177 bytes (623 KB)
+downloaded 623 KB
+
+package ‘Rserve’ successfully unpacked and MD5 sums checked
+
+The downloaded binary packages are in
+        C:\Users\mahender.alaveni\AppData\Local\Temp\Rtmpuwe9Oq\downloaded_packages
+> library(Rserve)
+> Rserve()
+Starting Rserve...
+ "C:\Users\MAHEND~1.ALA\DOCUME~1\R\WIN-LI~1\3.5\Rserve\libs\i386\Rserve.exe"  
+> 
+ 
+ 
+ Run rJava in windows
+--------------------
+> install.packages('rJava')
+Installing package into ‘C:/Users/mahender.alaveni/Documents/R/win-library/3.5’
+(as ‘lib’ is unspecified)
+--- Please select a CRAN mirror for use in this session ---
+trying URL 'https://rweb.crmda.ku.edu/cran/bin/windows/contrib/3.5/rJava_0.9-10.zip'
+Content type 'application/zip' length 826966 bytes (807 KB)
+downloaded 807 KB
+
+package ‘rJava’ successfully unpacked and MD5 sums checked
+
+The downloaded binary packages are in
+        C:\Users\mahender.alaveni\AppData\Local\Temp\RtmpCmqCJd\downloaded_packages
+		
+		
+jar files available in the below path for server and java:
+--------------------------------------------------------
+C:\Users\mahender.alaveni\Documents\R\win-library\3.5
